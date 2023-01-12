@@ -13,4 +13,4 @@ cargo install --path .
 sudo install -m755 mendax /usr/bin/mendax
 ```
 
-[astiinema]: https://asciinema.org/
+[asciinema]: https://asciinema.org/
