@@ -10,7 +10,7 @@ Specify a sequence of inputs and outputs, printed one at a time as you press ent
 git clone https://github.com/TheSignPainter98/mendax
 cd mendax
 cargo install --path .
-sudo install -m755 mendax /usr/bin/mendax
+sudo install -m755 ./target/release/mendax /usr/bin/mendax
 ```
 
 ## Usage
