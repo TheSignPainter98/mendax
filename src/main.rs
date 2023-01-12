@@ -29,7 +29,7 @@ fn main() {
     let spoof = match Spoof::from_file(fname) {
         Ok(s) => s,
         Err(e) => {
-            if fname == "cli.yml" {
+            if fname == "cli.yml" && e.downcast_ref::<std::io::Error>().is_some() {
                 eprintln!(
                     "no such file '{}'\nrun `{} init` to create an example file",
                     fname,
