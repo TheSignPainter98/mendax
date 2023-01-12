@@ -12,9 +12,9 @@ pub struct Args {
     #[arg(long, env = "HOST", default_value = "ubuntu")]
     host: String,
 
-    /// YAML file describing the CLI to spoof
-    #[arg(value_name = "spec", default_value = "cli.yml")]
-    input: String,
+    /// YAML file describing the CLI to spoof [default: cli.yml]
+    #[arg(value_name = "spec")]
+    input: Option<String>,
 
     /// The average time between typed characters
     #[arg(long, value_name = "ms", default_value = "45")]
@@ -34,7 +34,7 @@ impl Args {
         &self.host
     }
 
-    pub fn input(&self) -> &str {
+    pub fn input(&self) -> &Option<String> {
         &self.input
     }
 

@@ -19,24 +19,26 @@ const EXAMPLE: &str = r"
 
 fn main() {
     let args = Args::parse();
-    let fname = args.input();
+    let input_fname = args.input();
 
-    if fname == "init" {
+    if input_fname == &Some("init".into()) {
         init_example();
         return;
     }
 
-    let spoof = match Spoof::from_file(fname) {
+    let default_file = String::from("cli.yml");
+    let fname = input_fname.as_ref().unwrap_or(&default_file);
+    let spoof = match Spoof::from_file(&fname) {
         Ok(s) => s,
         Err(e) => {
-            if fname == "cli.yml" && e.downcast_ref::<std::io::Error>().is_some() {
+            if input_fname.is_none() && e.downcast_ref::<std::io::Error>().is_some() {
                 eprintln!(
                     "no such file '{}'\nrun `{} init` to create an example file",
                     fname,
                     env::args().next().unwrap()
                 );
             } else {
-                eprintln!("failed to open file '{}': {}", fname, e);
+                eprintln!("error parsing file '{}': {}", fname, e);
             }
             return;
         }
