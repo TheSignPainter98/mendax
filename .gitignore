@@ -1,3 +1,6 @@
 /target
 *.swp
 mendax
+*.yml
+*.yaml
+*.json
