@@ -13,4 +13,13 @@ cargo install --path .
 sudo install -m755 mendax /usr/bin/mendax
 ```
 
+## Usage
+
+```bash
+mendax init # make an example in the default location
+mendax # run with the default file name
+```
+
+The fake command-prompt shown can be modified using options, see `mendax --help` for more information.
+
 [asciinema]: https://asciinema.org/
