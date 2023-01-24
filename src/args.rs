@@ -13,7 +13,7 @@ pub struct Args {
     host: String,
 
     /// YAML file describing the CLI to spoof [default: cli.yml]
-    #[arg(value_name = "spec")]
+    #[arg(value_name = "file")]
     input: Option<String>,
 
     /// The average time between typed characters
