@@ -87,4 +87,5 @@ fn init_example() {
     let f = File::create("cli.yml").unwrap();
     let mut w = BufWriter::new(f);
     write!(w, "{}", &EXAMPLE[1..]).unwrap();
+    eprintln!("created example demo in 'cli.yml'\ncall `mendax` to run it");
 }
