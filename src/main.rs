@@ -8,14 +8,33 @@ use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
-const EXAMPLE: &str = r"
-- cmd: gcc --version
+const EXAMPLE: &str = r#"
+- cmd: mendax --help
+- print: |
+    A CLI spoofer
+
+    Usage: mendax [OPTIONS] [file]
+
+    Arguments:
+      [file]  YAML file describing the CLI to spoof [default: cli.yml]
+
+    Options:
+          --dir <DIR>             The current working directory of the fake command-line user [default: ~]
+          --host <HOST>           The host name of the fake command-line machine [env: HOST=] [default: ubuntu]
+          --typing-interval <ms>  The average time between typed characters [default: 45]
+          --user <USER>           The username of the fake command-line user [env: USER=kcza] [default: ubuntu]
+      -h, --help                  Print help information
+      -V, --version               Print version information
+- cmd: ls
+- print: |
+    cli.yml
+- cmd: cat cli.yml
 - print:
-  - gcc (Ubuntu 11.3.0-1ubuntu1~22.04) 11.3.0
-  - Copyright (C) 2021 Free Software Foundation, Inc.
-  - This is free software; see the source for copying conditions.  There is NO
-  - warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-";
+    - "- cmd: mendax --help"
+    - "- print: |"
+    - "    A CLI spoofer"
+    - "..."
+"#;
 
 fn main() {
     let args = Args::parse();
