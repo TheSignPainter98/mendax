@@ -20,4 +20,5 @@ parts:
   mendax:
     plugin: rust
     source: https://github.com/TheSignPainter98/mendax.git
-
+    build-packages:
+      - libncurses5-dev
