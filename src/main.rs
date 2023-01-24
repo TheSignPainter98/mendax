@@ -76,9 +76,6 @@ fn main() {
 
     spoof.run(&args, window);
 
-    // Hang before exit
-    ncurses::wgetch(window);
-
     ncurses::delwin(window);
     ncurses::endwin();
 }

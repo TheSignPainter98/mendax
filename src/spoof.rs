@@ -25,6 +25,27 @@ impl Spoof {
         for stage in &self.stages {
             stage.render(args, window)
         }
+        match self.stages.last() {
+            Some(Stage::Input(_)) => {},
+            _ => self.end_prompt(args, window),
+        }
+    }
+
+    fn end_prompt(&self, args: &Args, window: ncurses::WINDOW) {
+        let last_input = self
+            .stages
+            .iter()
+            .rev()
+            .find_map(|s| s.input().cloned())
+            .unwrap_or_default();
+        let prompt = last_input.prompt;
+        let dir = last_input.dir;
+        Stage::Input(InputStage {
+            cmd: "".into(),
+            prompt,
+            dir,
+        })
+        .render(args, window)
     }
 }
 
@@ -42,9 +63,16 @@ impl Stage {
             Self::Output(action) => action.render(args, window),
         }
     }
+
+    fn input(&self) -> Option<&InputStage> {
+        match self {
+            Self::Input(i) => Some(i),
+            _ => None,
+        }
+    }
 }
 
-#[derive(Deserialise, Debug)]
+#[derive(Deserialise, Debug, Default, Clone)]
 struct InputStage {
     cmd: String,
     prompt: Option<String>,
@@ -79,7 +107,10 @@ enum OutputStage {
     Lines {
         #[serde(default)]
         speed: OutputSpeed,
-        print: OutputLines,
+        print: Vec<String>,
+    },
+    Block {
+        print: String,
     },
     Screen {
         screen: String,
@@ -89,9 +120,40 @@ enum OutputStage {
 impl OutputStage {
     fn render(&self, _args: &Args, window: WINDOW) {
         match self {
-            Self::Lines { print, speed, .. } => print.render(speed, window),
+            Self::Lines { print, speed } => {
+                let mut rng = rand::thread_rng();
+                for (i, chunk) in print.iter().enumerate() {
+                    if i > 0 {
+                        let mean = speed.mean_interval();
+                        if mean != 0 {
+                            let mean = mean as f64;
+                            let deviation = mean * 0.5;
+                            let interval = rng.gen_range(mean - deviation..mean + deviation) as u64;
+                            thread::sleep(Duration::from_millis(interval));
+                        }
+                    }
+                    ncurses::waddstr(window, chunk);
+                    move_cursor_down(window);
+                    ncurses::wrefresh(window);
+                }
+            }
+            Self::Block { print } => {
+                if print.ends_with('\n') {
+                    ncurses::waddstr(window, print);
+                } else {
+                    ncurses::waddstr(window, print);
+                    move_cursor_down(window);
+                }
+            }
             Self::Screen { screen, .. } => {
+                // let subwindow = {
+                //     let mut lines = 0;
+                //     let mut cols = 0;
+                //     ncurses::getmaxyx(window, &mut cols, &mut lines);
+                //     ncurses::newwin(cols, lines, 0, 0)
+                // };
                 ncurses::waddstr(window, screen);
+                // ncurses::delwin(window);
             }
         }
     }
@@ -144,45 +206,6 @@ impl OutputSpeedGraduations {
     }
 }
 
-#[derive(Deserialise, Debug)]
-#[serde(untagged)]
-enum OutputLines {
-    Block(String),
-    LineByLine(Vec<String>),
-}
-
-impl OutputLines {
-    fn render(&self, speed: &OutputSpeed, window: WINDOW) {
-        match self {
-            Self::Block(s) => {
-                if s.chars().last() == Some('\n') {
-                    ncurses::waddstr(window, s);
-                } else {
-                    ncurses::waddstr(window, s);
-                    move_cursor_down(window);
-                }
-            }
-            Self::LineByLine(lines) => {
-                let mut rng = rand::thread_rng();
-                for (i, chunk) in lines.iter().enumerate() {
-                    if i > 0 {
-                        let mean = speed.mean_interval();
-                        if mean != 0 {
-                            let mean = mean as f64;
-                            let deviation = mean * 0.5;
-                            let interval = rng.gen_range(mean - deviation..mean + deviation) as u64;
-                            thread::sleep(Duration::from_millis(interval));
-                        }
-                    }
-                    ncurses::waddstr(window, chunk);
-                    move_cursor_down(window);
-                    ncurses::wrefresh(window);
-                }
-            }
-        }
-    }
-}
-
 fn move_cursor_down(window: WINDOW) {
     let mut x = 0;
     let mut y = 0;
@@ -192,7 +215,7 @@ fn move_cursor_down(window: WINDOW) {
     ncurses::getyx(window, &mut y, &mut x);
     ncurses::getmaxyx(window, &mut maxy, &mut _maxx);
 
-    if y == maxy - 1{
+    if y == maxy - 1 {
         ncurses::scroll(window);
         ncurses::wmove(window, y, 0);
     } else {
