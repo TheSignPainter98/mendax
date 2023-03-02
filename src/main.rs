@@ -1,10 +1,11 @@
 mod args;
-mod spoof;
+// mod spoof;
+mod config;
 
-use args::Args;
+use crate::args::Args;
 use clap::Parser;
-use spoof::Spoof;
-use std::env;
+// use crate::spoof::Spoof;
+// use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
@@ -38,46 +39,50 @@ const EXAMPLE: &str = r#"
 
 fn main() {
     let args = Args::parse();
-    let input_fname = args.input();
+    let fname = args.input();
 
-    if input_fname == &Some("init".into()) {
-        init_example();
-        return;
+    if args.init().is_some() {
+        return init_example();
     }
 
-    let default_file = String::from("cli.yml");
-    let fname = input_fname.as_ref().unwrap_or(&default_file);
-    let spoof = match Spoof::from_file(&fname) {
-        Ok(s) => s,
-        Err(e) => {
-            if input_fname.is_none() && e.downcast_ref::<std::io::Error>().is_some() {
-                eprintln!(
-                    "no such file '{}'\nrun `{} init` to create an example file",
-                    fname,
-                    env::args().next().unwrap()
-                );
-            } else {
-                eprintln!("error parsing file '{}': {}", fname, e);
-            }
-            return;
-        }
-    };
+    for part in config::read(fname, args.unrestricted()).unwrap().parts() {
+        println!("{part:?}");
+    }
 
-    ncurses::initscr();
-    ncurses::noecho();
+    // let spoof = match Spoof::from_file(fname) {
+    //     Ok(s) => s,
+    //     Err(e) => {
+    //         if e.downcast_ref::<std::io::Error>().is_some() {
+    //             eprintln!(
+    //                 "no such file '{}'\nrun `{} init` to create an example file",
+    //                 fname,
+    //                 env::args().next().unwrap()
+    //             );
+    //         } else {
+    //             eprintln!("error parsing file '{}': {}", fname, e);
+    //         }
+    //         return;
+    //     }
+    // };
 
-    let window = {
-        let mut lines = 0;
-        let mut cols = 0;
-        ncurses::getmaxyx(ncurses::stdscr(), &mut cols, &mut lines);
-        ncurses::newwin(cols, lines, 0, 0)
-    };
-    ncurses::scrollok(window, true);
+    // ncurses::initscr();
+    // ncurses::noecho();
 
-    spoof.run(&args, window);
+    // let window = {
+    //     let mut lines = 0;
+    //     let mut cols = 0;
+    //     ncurses::getmaxyx(ncurses::stdscr(), &mut cols, &mut lines);
+    //     ncurses::newwin(cols, lines, 0, 0)
+    // };
+    // ncurses::scrollok(window, true);
 
-    ncurses::delwin(window);
-    ncurses::endwin();
+    // spoof.run(&args, window);
+
+    // // Hang before exit
+    // ncurses::wgetch(window);
+
+    // ncurses::delwin(window);
+    // ncurses::endwin();
 }
 
 fn init_example() {
