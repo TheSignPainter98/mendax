@@ -82,8 +82,8 @@ struct InputStage {
 impl InputStage {
     fn render(&self, args: &Args, window: WINDOW) {
         match &self.prompt {
-            Some(p) => ncurses::waddstr(window, p),
-            None => ncurses::waddstr(window, &args.ps1(self.dir.as_ref().map(|s| &s[..]))),
+            Some(ref p) => ncurses::waddstr(window, p),
+            None => ncurses::waddstr(window, &args.ps1(self.dir.as_ref().map(|ref s| &s[..]))),
         };
 
         ncurses::wgetch(window);
