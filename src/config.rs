@@ -1,22 +1,36 @@
 // use crate::spoof::Spoof;
-use rhai::{CustomType, Engine, EvalAltResult, FnPtr, Map, Scope, TypeBuilder, NativeCallContext};
+use rhai::{CustomType, Engine, EvalAltResult, FnPtr, Map, NativeCallContext, Scope, TypeBuilder};
 use thiserror::Error;
-use std::str::FromStr;
 
-pub fn read(fname: &str, allow_run: bool) -> Result<Lie, Box<EvalAltResult>> {
-    let engine = {
-        let mut engine = Engine::new();
-        engine.build_type::<Lie>();
-        engine
-    };
+pub fn read(fname: &str, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
+    let engine = engine(unrestricted);
 
     let mut scope = Scope::new();
-    scope.push("lie", Lie::new(allow_run));
+    scope.push("lie", Lie::new(unrestricted));
 
     engine.run_file_with_scope(&mut scope, fname.into())?;
 
     let lie: Lie = scope.get_value("lie").unwrap();
     Ok(lie)
+}
+
+fn engine(unrestricted: bool) -> Engine {
+    let mut engine = Engine::new();
+    engine.build_type::<Lie>();
+
+    if !unrestricted {
+        engine.set_max_array_size(1000);
+        engine.set_max_call_levels(100);
+        engine.set_max_expr_depths(100, 100);
+        engine.set_max_map_size(1000);
+        engine.set_max_operations(10000);
+        engine.set_max_string_size(15000);
+    }
+
+    engine.set_strict_variables(true);
+    engine.set_fail_on_invalid_map_property(true);
+
+    engine
 }
 
 #[derive(Clone, Debug)]
@@ -41,24 +55,14 @@ impl Lie {
         &self.parts
     }
 
-    fn fake_string(&mut self, cmd: &str, result: &str) -> Result<(), Box<EvalAltResult>> {
+    fn fake_string(&mut self, cmd: &str, result: &str) {
         self.fake_strings(cmd, vec![result])
     }
 
-    fn fake_strings(&mut self, cmd: &str, result: Vec<&str>) -> Result<(), Box<EvalAltResult>> {
-        if !self.allow_run {
-            let problem = MendaxError::RunForbidden;
-            return Err(Box::new(EvalAltResult::ErrorSystem(
-                problem.to_string(),
-                problem.into(),
-            )));
-        }
-
+    fn fake_strings(&mut self, cmd: &str, result: Vec<&str>) {
         let cmd = cmd.into();
         let result = result.into_iter().map(ToOwned::to_owned).collect();
         self.parts.push(Fib::Fake { cmd, result });
-
-        Ok(())
     }
 
     fn prompt(&mut self, options: Map) -> Result<(), Box<EvalAltResult>> {
@@ -89,8 +93,18 @@ impl Lie {
         Ok(())
     }
 
-    fn run(&mut self, cmd: &str) {
-        self.parts.push(Fib::Run { cmd: cmd.into() })
+    fn run(&mut self, cmd: &str) -> Result<(), Box<EvalAltResult>> {
+        if !self.allow_run {
+            let problem = MendaxError::RunForbidden;
+            return Err(Box::new(EvalAltResult::ErrorSystem(
+                problem.to_string(),
+                problem.into(),
+            )));
+        }
+
+        self.parts.push(Fib::Run { cmd: cmd.into() });
+
+        Ok(())
     }
 
     fn look(&mut self, options: Map) -> Result<(), Box<EvalAltResult>> {
@@ -101,8 +115,8 @@ impl Lie {
         for (k, v) in options.iter() {
             match k.as_str() {
                 "speed" => speed = Some(v.clone().cast()),
-                "fg" => fg = Some(v.clone().cast().try_into()),
-                "bg" => bg = Some(v.clone().cast().try_into()),
+                "fg" => fg = Some(v.clone().cast::<String>().as_str().try_into()?),
+                "bg" => bg = Some(v.clone().cast::<String>().as_str().try_into()?),
                 _ => {
                     let err = MendaxError::UnknownField {
                         field: k.as_str().to_owned(),
@@ -122,11 +136,12 @@ impl Lie {
     }
 
     fn screen(ctx: NativeCallContext, lie: &mut Self, f: FnPtr) -> Result<(), Box<EvalAltResult>> {
-        // println!("{:?}", ctx);
         let child = lie.child();
-        let child: Lie = f.call_within_context(&ctx, (std::rc::Rc::new(std::sync::Mutex::new(child)),))?;
+        let child: Lie = f.call_within_context(&ctx, (child,))?;
 
-        lie.parts.push(Fib::Screen { parts: child.parts.clone() });
+        lie.parts.push(Fib::Screen {
+            parts: child.parts.clone(),
+        });
 
         Ok(())
     }
@@ -155,6 +170,15 @@ pub enum MendaxError {
 
     #[error("run commands are forbidden at this sandbox level")]
     RunForbidden,
+
+    #[error("unknown colour {0}, expected one of 'black' or 'red'")]
+    UnknownColour(String),
+}
+
+impl From<MendaxError> for EvalAltResult {
+    fn from(value: MendaxError) -> Self {
+        EvalAltResult::ErrorSystem(value.to_string(), Box::new(value))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -173,16 +197,28 @@ pub enum Fib {
     },
     Look {
         speed: Option<f64>,
-        fg: Option<String>, // TODO(kcza): get format the colours!
-        bg: Option<String>,
+        fg: Option<Colour>, // TODO(kcza): get format the colours!
+        bg: Option<Colour>,
     },
     Screen {
         parts: Vec<Fib>,
     },
 }
 
-// #[derive(strum_macros::EnumString)]
-// pub enum Colour {
-//     Red,
-//     Black
-// }
+#[derive(Clone, Debug)]
+pub enum Colour {
+    Red,
+    Black,
+}
+
+impl TryFrom<&str> for Colour {
+    type Error = Box<EvalAltResult>;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        match &s.to_lowercase()[..] {
+            "red" => Ok(Self::Red),
+            "black" => Ok(Self::Black),
+            _ => Err(Box::new(MendaxError::UnknownColour(s.to_owned()).into())),
+        }
+    }
+}
