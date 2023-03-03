@@ -27,13 +27,13 @@ impl Tell for Lie {
         style: &mut Style,
         stdout: &'a mut StdoutLock,
     ) -> Result<(), Box<dyn Error>> {
-        execute!(stdout, EnterAlternateScreen, Hide, DisableBlinking)?;
         terminal::enable_raw_mode()?;
+        execute!(stdout, EnterAlternateScreen, Hide, DisableBlinking)?;
 
         let ret = self.tale().tell(style, stdout);
 
-        terminal::disable_raw_mode()?;
         execute!(stdout, EnableBlinking, Show, LeaveAlternateScreen)?;
+        terminal::disable_raw_mode()?;
 
         ret
     }
