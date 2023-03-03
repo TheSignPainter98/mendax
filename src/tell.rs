@@ -79,7 +79,7 @@ impl Tell for Fib {
 
                 event::read()?;
 
-                style.fake_type(stdout, cmd.chars().collect::<Vec<_>>().as_slice())?;
+                style.fake_type(stdout, apparent_cmd.chars().collect::<Vec<_>>().as_slice())?;
 
                 event::read()?;
 
