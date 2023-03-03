@@ -5,7 +5,7 @@ use rhai::{
 use thiserror::Error;
 use lazy_static::lazy_static;
 
-pub fn read(fname: &str, unrestricted: bool) -> Result<Tale, Box<EvalAltResult>> {
+pub fn read(fname: &str, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
     let engine = engine(unrestricted);
 
     let mut scope = Scope::new();
@@ -13,8 +13,7 @@ pub fn read(fname: &str, unrestricted: bool) -> Result<Tale, Box<EvalAltResult>>
 
     engine.run_file_with_scope(&mut scope, fname.into())?;
 
-    let lie: Lie = scope.get_value("lie").unwrap();
-    Ok(lie.tale)
+    Ok(scope.get_value("lie").unwrap())
 }
 
 fn engine(unrestricted: bool) -> Engine {
@@ -50,12 +49,12 @@ impl Lie {
         }
     }
 
-    fn child(&self) -> Self {
-        Self::new(self.allow_system)
+    pub fn tale(&self) -> &Tale {
+        &self.tale
     }
 
-    pub fn fibs(self) -> Vec<Fib> {
-        self.tale.fibs()
+    fn child(&self) -> Self {
+        Self::new(self.allow_system)
     }
 
     fn run_short(&mut self, cmd: &str, result: &str) {
@@ -104,7 +103,7 @@ impl Lie {
         self.system(cmd, cmd)
     }
 
-    fn system(&mut self, apparent_cmd: &str, cmd: &str) -> Result<(), Box<EvalAltResult>> {
+    fn system(&mut self, cmd: &str, apparent_cmd: &str) -> Result<(), Box<EvalAltResult>> {
         if !self.allow_system {
             let problem = MendaxError::SystemForbidden;
             return Err(Box::new(EvalAltResult::ErrorSystem(
@@ -124,12 +123,14 @@ impl Lie {
         let mut speed = None;
         let mut fg = None;
         let mut bg = None;
+        let mut title = None;
 
         for (k, v) in options.iter() {
             match k.as_str() {
                 "speed" => speed = Some(v.clone().cast()),
                 "fg" => fg = Some(v.clone().cast::<String>().as_str().try_into()?),
                 "bg" => bg = Some(v.clone().cast::<String>().as_str().try_into()?),
+                "title" => title = Some(v.clone().cast()),
                 _ => {
                     let err = MendaxError::UnknownField {
                         field: k.as_str().to_owned(),
@@ -143,7 +144,7 @@ impl Lie {
             }
         }
 
-        self.tale.push(Fib::Look { speed, fg, bg });
+        self.tale.push(Fib::Look { speed, fg, bg, title });
 
         Ok(())
     }
@@ -156,6 +157,10 @@ impl Lie {
 
     //     Ok(())
     // }
+
+    fn clear(&mut self) {
+        self.tale.push(Fib::Clear);
+    }
 }
 
 impl CustomType for Lie {
@@ -185,8 +190,8 @@ impl Tale {
         self.0.push(fib)
     }
 
-    pub fn fibs(self) -> Vec<Fib> {
-        self.0
+    pub fn fibs(&self) -> &Vec<Fib> {
+        &self.0
     }
 }
 
@@ -223,17 +228,19 @@ pub enum Fib {
         user: Option<String>,
     },
     System {
-        apparent_cmd: String,
         cmd: String,
+        apparent_cmd: String,
     },
     Look {
         speed: Option<f64>,
         fg: Option<Colour>,
         bg: Option<Colour>,
+        title: Option<String>,
     },
-    Screen {
-        parts: Tale,
-    },
+    // Screen {
+    //     tale: Tale,
+    // },
+    Clear,
 }
 
 #[derive(Copy, Clone, Debug)]
