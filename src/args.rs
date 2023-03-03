@@ -8,7 +8,7 @@ pub struct Args {
     #[arg()]
     init: Option<Init>,
 
-    /// YAML file describing the CLI to spoof [default: cli.yml]
+    /// YAML file describing the CLI to spoof
     #[arg(long, value_name = "spec", default_value_t = String::from("lie.rhai"))]
     spec: String,
 

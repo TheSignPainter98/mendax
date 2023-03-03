@@ -43,7 +43,7 @@ fn main() -> ExitCode {
     let fname = args.input();
 
     if args.init().is_some() {
-        return match init_example() {
+        return match init_example(fname) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("{}", e);
@@ -102,8 +102,8 @@ fn main() -> ExitCode {
     // ncurses::endwin();
 }
 
-fn init_example() -> io::Result<()> {
-    let f = File::create("cli.yml")?;
+fn init_example(fname: &str) -> io::Result<()> {
+    let f = File::create(fname)?;
     let mut w = BufWriter::new(f);
 
     write!(w, "{}", &EXAMPLE[1..])?;
