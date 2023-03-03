@@ -179,7 +179,7 @@ impl Lie {
                 }
 
                 if !found {
-                    let err = MendaxError::UnknownField {
+                    return Err(Box::new(MendaxError::UnknownField {
                         field: k.to_owned(),
                         expected: {
                             let mut expected: Vec<_> =
@@ -187,11 +187,7 @@ impl Lie {
                             expected.sort();
                             expected
                         },
-                    };
-                    return Err(Box::new(EvalAltResult::ErrorSystem(
-                        err.to_string(),
-                        Box::new(err),
-                    )));
+                    }.into()));
                 }
             }
         }
@@ -248,7 +244,7 @@ impl Tale {
 
 #[derive(Debug, Error)]
 pub enum MendaxError {
-    #[error("unknown field {field:?} expected one of {expected:?}")]
+    #[error("unknown field {field:?}, expected one of: {}", .expected.join(", "))]
     UnknownField {
         field: String,
         expected: Vec<&'static str>,
@@ -257,7 +253,7 @@ pub enum MendaxError {
     #[error("system commands are forbidden at this sandbox level")]
     SystemForbidden,
 
-    #[error("unknown colour {0}, expected one of {1:?}")]
+    #[error("unknown colour {0}, expected one of: {}", .1.join(", "))]
     UnknownColour(String, &'static [&'static str]),
 
     #[error("keyboard interrupt")]
@@ -306,7 +302,11 @@ static COLOURS: phf::Map<&'static str, Colour> = phf::phf_map! {
 };
 
 lazy_static! {
-    static ref COLOUR_NAMES: Vec<&'static str> = COLOURS.keys().copied().collect();
+    static ref COLOUR_NAMES: Vec<&'static str> = {
+        let mut colour_names: Vec<_> = COLOURS.keys().copied().collect();
+        colour_names.sort();
+        colour_names
+    };
 }
 
 impl TryFrom<&str> for Colour {
