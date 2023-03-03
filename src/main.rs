@@ -1,13 +1,14 @@
 mod args;
-// mod spoof;
 mod config;
+mod tell;
 
 use crate::args::Args;
 use clap::Parser;
-// use crate::spoof::Spoof;
-// use std::env;
+use tell::Style;
 use std::fs::OpenOptions;
 use std::io::{self, BufWriter, Write};
+use crate::tell::Tell;
+use std::io::{stdout};
 use std::process::ExitCode;
 
 const EXAMPLE: &str = r#"
@@ -54,11 +55,11 @@ fn main() -> ExitCode {
         }
     };
 
-    for fib in tale.tale().fibs() {
-        println!("{fib:?}");
+    if tale.tell(&mut Style::default(), &mut stdout().lock()) {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
     }
-
-    ExitCode::SUCCESS
 
     // let spoof = match Spoof::from_file(fname) {
     //     Ok(s) => s,
