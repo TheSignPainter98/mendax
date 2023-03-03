@@ -1,13 +1,12 @@
-use crate::config::{Colour, Fib, Lie, Tale, MendaxError};
+use crate::config::{Colour, Fib, Lie, MendaxError, Tale};
 use crossterm::{
     cursor::{DisableBlinking, EnableBlinking, Hide, Show},
-    event::{self, Event, KeyEvent, KeyCode, KeyModifiers},
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     style::Print,
     terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, SetTitle},
     ExecutableCommand,
 };
-use lazy_static::lazy_static;
 use rand::Rng;
 use std::error::Error;
 use std::fmt::Display;
@@ -17,15 +16,15 @@ use std::{thread, time::Duration};
 use subprocess::Exec;
 
 pub trait Tell {
-    fn tell<'a>(&self, style: &mut Style, stdout: &'a mut StdoutLock)
+    fn tell(&self, style: &mut Style, stdout: &mut StdoutLock)
         -> Result<(), Box<dyn Error>>;
 }
 
 impl Tell for Lie {
-    fn tell<'a>(
+    fn tell(
         &self,
         style: &mut Style,
-        stdout: &'a mut StdoutLock,
+        stdout: &mut StdoutLock,
     ) -> Result<(), Box<dyn Error>> {
         terminal::enable_raw_mode()?;
         execute!(stdout, EnterAlternateScreen, Hide, DisableBlinking)?;
@@ -40,10 +39,10 @@ impl Tell for Lie {
 }
 
 impl Tell for Tale {
-    fn tell<'a>(
+    fn tell(
         &self,
         style: &mut Style,
-        stdout: &'a mut StdoutLock,
+        stdout: &mut StdoutLock,
     ) -> Result<(), Box<dyn Error>> {
         for fib in self.fibs() {
             fib.tell(style, stdout)?;
@@ -56,10 +55,10 @@ impl Tell for Tale {
 }
 
 impl Tell for Fib {
-    fn tell<'a>(
+    fn tell(
         &self,
         style: &mut Style,
-        stdout: &'a mut StdoutLock,
+        stdout: &mut StdoutLock,
     ) -> Result<(), Box<dyn Error>> {
         match self {
             Self::Run { cmd, result } => {
@@ -107,8 +106,8 @@ impl Tell for Fib {
             }
             Self::Look {
                 speed,
-                fg,
-                bg,
+                fg: _,
+                bg: _,
                 title,
                 cwd,
                 host,
@@ -145,8 +144,12 @@ impl Tell for Fib {
 fn pause() -> Result<(), Box<dyn Error>> {
     loop {
         match event::read()? {
-            Event::Key(KeyEvent { code: KeyCode::Char('c'), modifiers: KeyModifiers::CONTROL, .. }) => return Err(Box::new(MendaxError::KeyboardInterrupt)),
-            Event::Key(KeyEvent {..}) => return Ok(()),
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('c'),
+                modifiers: KeyModifiers::CONTROL,
+                ..
+            }) => return Err(Box::new(MendaxError::KeyboardInterrupt)),
+            Event::Key(KeyEvent { .. }) => return Ok(()),
             _ => {}
         }
     }
@@ -155,7 +158,11 @@ fn pause() -> Result<(), Box<dyn Error>> {
 pub struct Style {
     screen_blank: bool,
     speed: f64,
+
+    #[allow(unused)]
     fg: Colour,
+
+    #[allow(unused)]
     bg: Colour,
     cwd: String,
     host: String,
@@ -177,7 +184,7 @@ impl Style {
         for t in ts.iter() {
             if self.speed != 0.0 {
                 let deviation = self.speed * 0.5;
-                let interval = rng.gen_range(self.speed - deviation..self.speed + deviation) as f64;
+                let interval = rng.gen_range(self.speed - deviation..self.speed + deviation);
 
                 thread::sleep(Duration::from_millis((interval * 1000.0) as u64));
             }

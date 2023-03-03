@@ -243,7 +243,7 @@ static COLOURS: phf::Map<&'static str, Colour> = phf::phf_map! {
 };
 
 lazy_static! {
-    static ref COLOUR_NAMES: Vec<&'static str> = COLOURS.keys().map(|s| (*s).into()).collect();
+    static ref COLOUR_NAMES: Vec<&'static str> = COLOURS.keys().copied().collect();
 }
 
 impl TryFrom<&str> for Colour {
@@ -254,7 +254,7 @@ impl TryFrom<&str> for Colour {
             Ok(*c)
         } else {
             Err(Box::new(
-                MendaxError::UnknownColour(s.to_owned().into(), &COLOUR_NAMES).into(),
+                MendaxError::UnknownColour(s.to_owned(), &COLOUR_NAMES).into(),
             ))
         }
     }
