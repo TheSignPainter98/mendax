@@ -1,6 +1,6 @@
 // use crate::spoof::Spoof;
 use lazy_static::lazy_static;
-use rhai::{Array, CustomType, Engine, EvalAltResult, Map, Scope, TypeBuilder};
+use rhai::{Array, CustomType, Dynamic, Engine, EvalAltResult, Map, Scope, TypeBuilder};
 use thiserror::Error;
 
 pub fn read<T: AsRef<str>>(fname: T, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
@@ -110,20 +110,83 @@ impl Lie {
         let mut host = None;
         let mut user = None;
 
-        for (k, v) in options.iter() {
-            let v = v.clone();
-            match k.as_str() {
-                "speed" => speed = Some(v.cast()),
-                "fg" => fg = Some(v.cast::<String>().as_str().try_into()?),
-                "bg" => bg = Some(v.cast::<String>().as_str().try_into()?),
-                "title" => title = Some(v.cast()),
-                "cwd" => cwd = Some(v.cast()),
-                "host" => host = Some(v.cast()),
-                "user" => user = Some(v.cast()),
-                _ => {
+        {
+            let mut action_list: [(
+                &'static str,
+                Box<dyn FnMut(Dynamic) -> Result<(), Box<EvalAltResult>>>,
+            ); 7] = [
+                (
+                    "speed",
+                    Box::new(|v: Dynamic| {
+                        speed = v.cast();
+                        Ok(())
+                    }),
+                ),
+                (
+                    "fg",
+                    Box::new(|v: Dynamic| {
+                        fg = Some(v.cast::<String>().as_str().try_into()?);
+                        Ok(())
+                    }),
+                ),
+                (
+                    "bg",
+                    Box::new(|v: Dynamic| {
+                        bg = Some(v.cast::<String>().as_str().try_into()?);
+                        Ok(())
+                    }),
+                ),
+                (
+                    "title",
+                    Box::new(|v: Dynamic| {
+                        title = Some(v.cast());
+                        Ok(())
+                    }),
+                ),
+                (
+                    "cwd",
+                    Box::new(|v: Dynamic| {
+                        cwd = Some(v.cast());
+                        Ok(())
+                    }),
+                ),
+                (
+                    "host",
+                    Box::new(|v: Dynamic| {
+                        host = Some(v.cast());
+                        Ok(())
+                    }),
+                ),
+                (
+                    "user",
+                    Box::new(|v: Dynamic| {
+                        user = Some(v.cast());
+                        Ok(())
+                    }),
+                ),
+            ];
+
+            for (k, v) in options.iter() {
+                let mut found = false;
+                let k = k.as_str();
+                'actions: for (name, action) in &mut action_list {
+                    if k != *name {
+                        continue;
+                    }
+                    action(v.clone())?;
+                    found = true;
+                    break 'actions;
+                }
+
+                if !found {
                     let err = MendaxError::UnknownField {
-                        field: k.as_str().to_owned(),
-                        expected: vec!["speed", "fg", "bg", "title", "cwd", "host", "user"],
+                        field: k.to_owned(),
+                        expected: {
+                            let mut expected: Vec<_> =
+                                action_list.iter().map(|(k, _)| k.to_owned()).collect();
+                            expected.sort();
+                            expected
+                        },
                     };
                     return Err(Box::new(EvalAltResult::ErrorSystem(
                         err.to_string(),
