@@ -1,9 +1,9 @@
+use std::collections::HashMap;
+
 // use crate::spoof::Spoof;
-use rhai::{
-    Array, CustomType, Engine, EvalAltResult, Map, Scope, TypeBuilder,
-};
-use thiserror::Error;
 use lazy_static::lazy_static;
+use rhai::{Array, CustomType, Engine, EvalAltResult, Map, Scope, TypeBuilder};
+use thiserror::Error;
 
 pub fn read(fname: &str, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
     let engine = engine(unrestricted);
@@ -76,39 +76,15 @@ impl Lie {
             cmd: format!("cd {dir}"),
             result: vec![],
         });
-        self.tale.push(Fib::Prompt {
+        self.tale.push(Fib::Look {
             cwd: Some(dir.into()),
             host: None,
             user: None,
+            fg: None,
+            bg: None,
+            speed: None,
+            title: None,
         });
-    }
-
-    fn prompt(&mut self, options: Map) -> Result<(), Box<EvalAltResult>> {
-        let mut cwd = None;
-        let mut host = None;
-        let mut user = None;
-
-        for (k, v) in options.iter() {
-            match k.as_str() {
-                "cwd" => cwd = Some(v.clone().cast()),
-                "host" => host = Some(v.clone().cast()),
-                "user" => user = Some(v.clone().cast()),
-                _ => {
-                    let err = MendaxError::UnknownField {
-                        field: k.as_str().to_owned(),
-                        expected: vec!["cwd", "host", "user"],
-                    };
-                    return Err(Box::new(EvalAltResult::ErrorSystem(
-                        err.to_string(),
-                        Box::new(err),
-                    )));
-                }
-            }
-        }
-
-        self.tale.push(Fib::Prompt { cwd, host, user });
-
-        Ok(())
     }
 
     fn system_simple(&mut self, cmd: &str) -> Result<(), Box<EvalAltResult>> {
@@ -119,8 +95,8 @@ impl Lie {
         if !self.allow_system {
             let problem = MendaxError::SystemForbidden;
             return Err(Box::new(EvalAltResult::ErrorSystem(
-                problem.to_string(),
-                problem.into(),
+                        problem.to_string(),
+                        problem.into(),
             )));
         }
 
@@ -136,27 +112,42 @@ impl Lie {
         let mut fg = None;
         let mut bg = None;
         let mut title = None;
+        let mut cwd = None;
+        let mut host = None;
+        let mut user = None;
 
         for (k, v) in options.iter() {
+            let v = v.clone();
             match k.as_str() {
-                "speed" => speed = Some(v.clone().cast()),
-                "fg" => fg = Some(v.clone().cast::<String>().as_str().try_into()?),
-                "bg" => bg = Some(v.clone().cast::<String>().as_str().try_into()?),
-                "title" => title = Some(v.clone().cast()),
+                "speed" => speed = Some(v.cast()),
+                "fg" => fg = Some(v.cast::<String>().as_str().try_into()?),
+                "bg" => bg = Some(v.cast::<String>().as_str().try_into()?),
+                "title" => title = Some(v.cast()),
+                "cwd" => cwd = Some(v.cast()),
+                "host" => host = Some(v.cast()),
+                "user" => user = Some(v.cast()),
                 _ => {
                     let err = MendaxError::UnknownField {
                         field: k.as_str().to_owned(),
                         expected: vec!["speed", "fg", "bg"],
                     };
                     return Err(Box::new(EvalAltResult::ErrorSystem(
-                        err.to_string(),
-                        Box::new(err),
+                                err.to_string(),
+                                Box::new(err),
                     )));
                 }
             }
         }
 
-        self.tale.push(Fib::Look { speed, fg, bg, title });
+        self.tale.push(Fib::Look {
+            speed,
+            fg,
+            bg,
+            title,
+            cwd,
+            host,
+            user,
+        });
 
         Ok(())
     }
@@ -176,7 +167,6 @@ impl CustomType for Lie {
             .with_fn("cd", Self::cd)
             .with_fn("system", Self::system_simple)
             .with_fn("system", Self::system)
-            .with_fn("prompt", Self::prompt)
             .with_fn("clear", Self::clear)
             .with_fn("look", Self::look);
     }
@@ -226,11 +216,6 @@ pub enum Fib {
         cmd: String,
         result: Vec<String>,
     },
-    Prompt {
-        cwd: Option<String>,
-        host: Option<String>,
-        user: Option<String>,
-    },
     System {
         cmd: String,
         apparent_cmd: String,
@@ -240,6 +225,9 @@ pub enum Fib {
         fg: Option<Colour>,
         bg: Option<Colour>,
         title: Option<String>,
+        cwd: Option<String>,
+        host: Option<String>,
+        user: Option<String>,
     },
     Clear,
 }
@@ -268,7 +256,9 @@ impl TryFrom<&str> for Colour {
         if let Some(c) = COLOURS.get(s) {
             Ok(*c)
         } else {
-            Err(Box::new(MendaxError::UnknownColour(s.to_owned().into(), &COLOUR_NAMES).into()))
+            Err(Box::new(
+                    MendaxError::UnknownColour(s.to_owned().into(), &COLOUR_NAMES).into(),
+            ))
         }
     }
 }

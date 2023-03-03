@@ -5,20 +5,17 @@ lie.run("baz", "r3");
 lie.system("echo asdf");
 lie.system("ls", "echo asdf");
 
-lie.prompt(#{
-	user: "methos",
-	host: "gaia",
-	cwd: "/",
-});
-
 lie.run("baz", "r3");
 
 lie.look(#{
 	fg: "red",
 	bg: "black",
 	title: "hfjdkla",
+	user: "methos",
+	host: "gaia",
+	cwd: "/",
 });
 
 lie.clear();
 
-lie.system("ls", "echo asdf");
+lie.system("ls", "super-cool-command-not-ls");
