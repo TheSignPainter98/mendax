@@ -33,5 +33,5 @@ impl Args {
 
 #[derive(ValueEnum, Clone)]
 pub enum Init {
-    Init
+    Init,
 }
