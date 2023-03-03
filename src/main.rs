@@ -6,37 +6,31 @@ use crate::args::Args;
 use clap::Parser;
 // use crate::spoof::Spoof;
 // use std::env;
-use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::{self, BufWriter, Write};
 use std::process::ExitCode;
 
 const EXAMPLE: &str = r#"
-- cmd: mendax --help
-- print: |
-    A CLI spoofer
+lie.look(#{ title: "legit demo" });
 
-    Usage: mendax [OPTIONS] [file]
+lie.run("echo Hello, world", "Hello, world");
+lie.run("echo 'All of this is fake'", "'All of this is fake'");
 
-    Arguments:
-      [file]  YAML file describing the CLI to spoof [default: cli.yml]
+lie.cd("~");
 
-    Options:
-          --dir <DIR>             The current working directory of the fake command-line user [default: ~]
-          --host <HOST>           The host name of the fake command-line machine [env: HOST=] [default: ubuntu]
-          --typing-interval <ms>  The average time between typed characters [default: 45]
-          --user <USER>           The username of the fake command-line user [env: USER=kcza] [default: ubuntu]
-      -h, --help                  Print help information
-      -V, --version               Print version information
-- cmd: ls
-- print: |
-    cli.yml
-- cmd: cat cli.yml
-- print:
-    - "- cmd: mendax --help"
-    - "- print: |"
-    - "    A CLI spoofer"
-    - "..."
-    "#;
+lie.run("ls -A1", [
+    ".bash_history",
+    ".bashrc",
+    ".cargo",
+    ".rustup",
+    ".vimrc",
+    ".zshrc",
+    "Desktop",
+    "Documents",
+    "Downloads",
+    "snap",
+]);
+"#;
 
 fn main() -> ExitCode {
     let args = Args::parse();
@@ -103,7 +97,7 @@ fn main() -> ExitCode {
 }
 
 fn init_example(fname: &str) -> io::Result<()> {
-    let f = File::create(fname)?;
+    let f = OpenOptions::new().create_new(true).open(fname)?;
     let mut w = BufWriter::new(f);
 
     write!(w, "{}", &EXAMPLE[1..])?;

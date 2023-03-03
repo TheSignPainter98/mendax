@@ -53,6 +53,10 @@ impl Lie {
         &self.tale
     }
 
+    fn run_no_output(&mut self, cmd: &str) {
+        self.run(cmd, vec![])
+    }
+
     fn run_short(&mut self, cmd: &str, result: &str) {
         self.run(cmd, vec![result.into()])
     }
@@ -65,6 +69,18 @@ impl Lie {
     fn run(&mut self, cmd: &str, result: Vec<String>) {
         let cmd = cmd.into();
         self.tale.push(Fib::Run { cmd, result });
+    }
+
+    fn cd(&mut self, dir: &str) {
+        self.tale.push(Fib::Run {
+            cmd: format!("cd {dir}"),
+            result: vec![],
+        });
+        self.tale.push(Fib::Prompt {
+            cwd: Some(dir.into()),
+            host: None,
+            user: None,
+        });
     }
 
     fn prompt(&mut self, options: Map) -> Result<(), Box<EvalAltResult>> {
@@ -154,8 +170,10 @@ impl CustomType for Lie {
     fn build(mut builder: TypeBuilder<Self>) {
         builder
             .with_name("Lie")
+            .with_fn("run", Self::run_no_output)
             .with_fn("run", Self::run_short)
             .with_fn("run", Self::run_long)
+            .with_fn("cd", Self::cd)
             .with_fn("system", Self::system_simple)
             .with_fn("system", Self::system)
             .with_fn("prompt", Self::prompt)
