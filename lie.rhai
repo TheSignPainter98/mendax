@@ -11,9 +11,9 @@ lie.look(#{
 	fg: "red",
 	bg: "black",
 	title: "hfjdkla",
+	cwd: "/",
 	user: "methos",
 	host: "gaia",
-	cwd: "/",
 });
 
 lie.clear();
