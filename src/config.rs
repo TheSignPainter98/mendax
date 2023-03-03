@@ -253,7 +253,7 @@ pub enum MendaxError {
     #[error("system commands are forbidden at this sandbox level")]
     SystemForbidden,
 
-    #[error("unknown colour {0}, expected one of: {}", .1.join(", "))]
+    #[error("unknown colour {0:?}, expected one of: {}", .1.join(", "))]
     UnknownColour(String, &'static [&'static str]),
 
     #[error("keyboard interrupt")]
