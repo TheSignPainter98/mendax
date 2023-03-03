@@ -13,8 +13,6 @@ Specify a sequence of inputs and outputs, printed one at a time as you press ent
 * [Input format](#input-format)
     * [Input actions](#input-actions)
     * [Output actions](#output-actions)
-* [Known Issues](#known-issues)
-    * [`$HOST` not auto-detected](#host-not-auto-detected)
 * [Author, License and Name](#author-license-and-name)
 
 <!-- vim-markdown-toc -->
@@ -86,13 +84,6 @@ To print text line by line (for example to simulate the output as a program comp
   - controller  microk8s-localhost  microk8s/localhost  2.9.37   unsupported  11:19:55Z
   speed: snail # Optional: override default print frequency
 ```
-
-## Known Issues
-
-### `$HOST` not auto-detected
-
-The default promps reads the host name from the `$HOST` environment variable, however some systems may not expose the host name by default.
-Depending on your shell, running `export HOST` before `mendax` should fix this.
 
 ## Author, License and Name
 
