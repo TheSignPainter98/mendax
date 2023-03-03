@@ -60,7 +60,7 @@ fn main() -> ExitCode {
         }
     };
 
-    for fib in tale.fibs() {
+    for fib in tale.tale().fibs() {
         println!("{fib:?}");
     }
 
