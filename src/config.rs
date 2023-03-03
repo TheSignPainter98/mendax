@@ -53,10 +53,6 @@ impl Lie {
         &self.tale
     }
 
-    // fn child(&self) -> Self {
-    //     Self::new(self.allow_system)
-    // }
-
     fn run_short(&mut self, cmd: &str, result: &str) {
         self.run(cmd, vec![result.into()])
     }
@@ -149,15 +145,6 @@ impl Lie {
         Ok(())
     }
 
-    // fn screen(ctx: NativeCallContext, lie: &mut Self, f: FnPtr) -> Result<(), Box<EvalAltResult>> {
-    //     let child = lie.child();
-    //     let child: Lie = f.call_within_context(&ctx, (child,))?;
-
-    //     lie.tale.push(Fib::Screen { tale: child.tale });
-
-    //     Ok(())
-    // }
-
     fn clear(&mut self) {
         self.tale.push(Fib::Clear);
     }
@@ -172,7 +159,6 @@ impl CustomType for Lie {
             .with_fn("system", Self::system_simple)
             .with_fn("system", Self::system)
             .with_fn("prompt", Self::prompt)
-            // .with_fn("screen", Self::screen)
             .with_fn("clear", Self::clear)
             .with_fn("look", Self::look);
     }
@@ -237,9 +223,6 @@ pub enum Fib {
         bg: Option<Colour>,
         title: Option<String>,
     },
-    // Screen {
-    //     tale: Tale,
-    // },
     Clear,
 }
 
