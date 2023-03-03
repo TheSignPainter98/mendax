@@ -58,10 +58,14 @@ impl Tell for Fib {
     ) -> Result<(), Box<dyn Error>> {
         match self {
             Self::Run { cmd, result } => {
-                write!(stdout, "{}", style.ps1()).unwrap();
-                write!(stdout, "{cmd}").unwrap();
-                stdout.flush().unwrap();
-                event::read().unwrap();
+                write!(stdout, "{}", style.ps1())?;
+                stdout.flush()?;
+
+                event::read()?;
+
+                style.fake_type(stdout, cmd.chars().collect::<Vec<_>>().as_slice())?;
+
+                event::read()?;
 
                 for line in result {
                     writeln!(stdout, "{line}")?;
@@ -70,18 +74,18 @@ impl Tell for Fib {
                 Ok(())
             }
             Self::System { apparent_cmd, cmd } => {
-                write!(stdout, "{}", style.ps1()).unwrap();
-                write!(stdout, "{apparent_cmd}").unwrap();
-                stdout.flush().unwrap();
-                event::read().unwrap();
+                write!(stdout, "{}", style.ps1())?;
+                stdout.flush()?;
 
-                match Exec::shell(cmd).join() {
-                    Ok(_) => true,
-                    Err(e) => {
-                        eprintln!("{e}");
-                        false
-                    }
-                }
+                event::read()?;
+
+                style.fake_type(stdout, cmd.chars().collect::<Vec<_>>().as_slice())?;
+
+                event::read()?;
+
+                Exec::shell(cmd).join()?;
+
+                Ok(())
             }
             Self::Look {
                 speed,
@@ -132,6 +136,28 @@ impl Style {
     fn ps1(&self) -> String {
         format!("{}@{}:{}$ ", self.user, self.host, self.cwd)
     }
+
+    fn fake_type<T: Display>(
+        &self,
+        stdout: &mut StdoutLock,
+        ts: &[T],
+    ) -> Result<(), Box<dyn Error>> {
+        let mut rng = rand::thread_rng();
+
+        for t in ts.iter() {
+            if self.speed != 0.0 {
+                let deviation = self.speed * 0.5;
+                let interval = rng.gen_range(self.speed - deviation..self.speed + deviation) as f64;
+
+                thread::sleep(Duration::from_millis((interval * 1000.0) as u64));
+            }
+
+            write!(stdout, "{t}")?;
+            stdout.flush()?;
+        }
+
+        Ok(())
+    }
 }
 
 lazy_static! {
@@ -143,7 +169,7 @@ lazy_static! {
 impl Default for Style {
     fn default() -> Self {
         Self {
-            speed: 1.0,
+            speed: 0.040,
             fg: Colour::White,
             bg: Colour::Black,
             cwd: CWD.clone(),
