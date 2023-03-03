@@ -1,7 +1,8 @@
-use crate::config::{Colour, Fib, Lie, Tale};
+use crate::config::{Colour, Fib, Lie, Tale, MendaxError};
 use crossterm::{
     cursor::{DisableBlinking, EnableBlinking, Hide, Show},
-    event, execute,
+    event::{self, Event, KeyEvent, KeyCode, KeyModifiers},
+    execute,
     style::Print,
     terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, SetTitle},
     ExecutableCommand,
@@ -48,7 +49,7 @@ impl Tell for Tale {
             fib.tell(style, stdout)?;
         }
 
-        event::read()?;
+        pause()?;
 
         Ok(())
     }
@@ -72,12 +73,12 @@ impl Tell for Fib {
                 stdout.flush()?;
 
                 execute!(stdout, Show, DisableBlinking)?;
-                event::read()?;
+                pause()?;
 
                 style.fake_type(stdout, cmd.chars().collect::<Vec<_>>().as_slice())?;
 
                 execute!(stdout, Hide, EnableBlinking)?;
-                event::read()?;
+                pause()?;
 
                 for line in result {
                     execute!(stdout, Print("\r\n"), Print(line))?;
@@ -94,11 +95,11 @@ impl Tell for Fib {
                 execute!(stdout, Print(style.ps1()))?;
                 stdout.flush()?;
 
-                event::read()?;
+                pause()?;
 
                 style.fake_type(stdout, apparent_cmd.chars().collect::<Vec<_>>().as_slice())?;
 
-                event::read()?;
+                pause()?;
 
                 Exec::shell(cmd).join()?;
 
@@ -137,6 +138,16 @@ impl Tell for Fib {
                 style.screen_blank = true;
                 Ok(())
             }
+        }
+    }
+}
+
+fn pause() -> Result<(), Box<dyn Error>> {
+    loop {
+        match event::read()? {
+            Event::Key(KeyEvent { code: KeyCode::Char('c'), modifiers: KeyModifiers::CONTROL, .. }) => return Err(Box::new(MendaxError::KeyboardInterrupt)),
+            Event::Key(KeyEvent {..}) => return Ok(()),
+            _ => {}
         }
     }
 }

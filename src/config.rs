@@ -196,6 +196,9 @@ pub enum MendaxError {
 
     #[error("unknown colour {0}, expected one of {1:?}")]
     UnknownColour(String, &'static [&'static str]),
+
+    #[error("keyboard interrupt")]
+    KeyboardInterrupt,
 }
 
 impl From<MendaxError> for EvalAltResult {
