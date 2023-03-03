@@ -1,5 +1,7 @@
 // use crate::spoof::Spoof;
-use rhai::{CustomType, Engine, EvalAltResult, FnPtr, Map, NativeCallContext, Scope, TypeBuilder};
+use rhai::{
+    Array, CustomType, Engine, EvalAltResult, FnPtr, Map, NativeCallContext, Scope, TypeBuilder,
+};
 use thiserror::Error;
 
 pub fn read(fname: &str, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
@@ -35,34 +37,38 @@ fn engine(unrestricted: bool) -> Engine {
 
 #[derive(Clone, Debug)]
 pub struct Lie {
-    parts: Vec<Fib>,
-    allow_run: bool,
+    tale: Tale,
+    allow_system: bool,
 }
 
 impl Lie {
-    fn new(allow_run: bool) -> Self {
+    fn new(allow_system: bool) -> Self {
         Self {
-            parts: Vec::new(),
-            allow_run,
+            tale: Tale::new(),
+            allow_system,
         }
     }
 
     fn child(&self) -> Self {
-        Self::new(self.allow_run)
+        Self::new(self.allow_system)
     }
 
-    pub fn parts(&self) -> &Vec<Fib> {
-        &self.parts
+    pub fn fibs(self) -> Vec<Fib> {
+        self.tale.fibs()
     }
 
-    fn fake_string(&mut self, cmd: &str, result: &str) {
-        self.fake_strings(cmd, vec![result])
+    fn run_short(&mut self, cmd: &str, result: &str) {
+        self.run(cmd, vec![result.into()])
     }
 
-    fn fake_strings(&mut self, cmd: &str, result: Vec<&str>) {
+    fn run_long(&mut self, cmd: &str, result: Array) -> Result<(), Box<EvalAltResult>> {
+        self.run(cmd, result.into_iter().map(|l| l.cast()).collect());
+        Ok(())
+    }
+
+    fn run(&mut self, cmd: &str, result: Vec<String>) {
         let cmd = cmd.into();
-        let result = result.into_iter().map(ToOwned::to_owned).collect();
-        self.parts.push(Fib::Fake { cmd, result });
+        self.tale.push(Fib::Run { cmd, result });
     }
 
     fn prompt(&mut self, options: Map) -> Result<(), Box<EvalAltResult>> {
@@ -88,21 +94,27 @@ impl Lie {
             }
         }
 
-        self.parts.push(Fib::Prompt { cwd, host, user });
+        self.tale.push(Fib::Prompt { cwd, host, user });
 
         Ok(())
     }
 
-    fn run(&mut self, cmd: &str) -> Result<(), Box<EvalAltResult>> {
-        if !self.allow_run {
-            let problem = MendaxError::RunForbidden;
+    fn system_simple(&mut self, cmd: &str) -> Result<(), Box<EvalAltResult>> {
+        self.system(cmd, cmd)
+    }
+
+    fn system(&mut self, apparent_cmd: &str, cmd: &str) -> Result<(), Box<EvalAltResult>> {
+        if !self.allow_system {
+            let problem = MendaxError::SystemForbidden;
             return Err(Box::new(EvalAltResult::ErrorSystem(
                 problem.to_string(),
                 problem.into(),
             )));
         }
 
-        self.parts.push(Fib::Run { cmd: cmd.into() });
+        let apparent_cmd = apparent_cmd.into();
+        let cmd = cmd.into();
+        self.tale.push(Fib::System { apparent_cmd, cmd });
 
         Ok(())
     }
@@ -130,7 +142,7 @@ impl Lie {
             }
         }
 
-        self.parts.push(Fib::Look { speed, fg, bg });
+        self.tale.push(Fib::Look { speed, fg, bg });
 
         Ok(())
     }
@@ -139,9 +151,7 @@ impl Lie {
         let child = lie.child();
         let child: Lie = f.call_within_context(&ctx, (child,))?;
 
-        lie.parts.push(Fib::Screen {
-            parts: child.parts.clone(),
-        });
+        lie.tale.push(Fib::Screen { parts: child.tale });
 
         Ok(())
     }
@@ -151,12 +161,30 @@ impl CustomType for Lie {
     fn build(mut builder: TypeBuilder<Self>) {
         builder
             .with_name("Lie")
-            .with_fn("fake", Self::fake_string)
-            .with_fn("fake", Self::fake_strings)
-            .with_fn("run", Self::run)
+            .with_fn("run", Self::run_short)
+            .with_fn("run", Self::run_long)
+            .with_fn("system", Self::system_simple)
+            .with_fn("system", Self::system)
             .with_fn("prompt", Self::prompt)
             .with_fn("screen", Self::screen)
             .with_fn("look", Self::look);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Tale(Vec<Fib>);
+
+impl Tale {
+    fn new() -> Self {
+        Self(vec![])
+    }
+
+    fn push(&mut self, fib: Fib) {
+        self.0.push(fib)
+    }
+
+    fn fibs(self) -> Vec<Fib> {
+        self.0
     }
 }
 
@@ -168,8 +196,8 @@ pub enum MendaxError {
         expected: Vec<&'static str>,
     },
 
-    #[error("run commands are forbidden at this sandbox level")]
-    RunForbidden,
+    #[error("system commands are forbidden at this sandbox level")]
+    SystemForbidden,
 
     #[error("unknown colour {0}, expected one of 'black' or 'red'")]
     UnknownColour(String),
@@ -183,7 +211,7 @@ impl From<MendaxError> for EvalAltResult {
 
 #[derive(Clone, Debug)]
 pub enum Fib {
-    Fake {
+    Run {
         cmd: String,
         result: Vec<String>,
     },
@@ -192,33 +220,39 @@ pub enum Fib {
         host: Option<String>,
         user: Option<String>,
     },
-    Run {
+    System {
+        apparent_cmd: String,
         cmd: String,
     },
     Look {
         speed: Option<f64>,
-        fg: Option<Colour>, // TODO(kcza): get format the colours!
+        fg: Option<Colour>,
         bg: Option<Colour>,
     },
     Screen {
-        parts: Vec<Fib>,
+        parts: Tale,
     },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Colour {
     Red,
     Black,
 }
 
+static COLOURS: phf::Map<&'static str, Colour> = phf::phf_map! {
+    "red"   => Colour::Red,
+    "black" => Colour::Black,
+};
+
 impl TryFrom<&str> for Colour {
     type Error = Box<EvalAltResult>;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        match &s.to_lowercase()[..] {
-            "red" => Ok(Self::Red),
-            "black" => Ok(Self::Black),
-            _ => Err(Box::new(MendaxError::UnknownColour(s.to_owned()).into())),
+        if let Some(c) = COLOURS.get(s) {
+            Ok(*c)
+        } else {
+            Err(Box::new(MendaxError::UnknownColour(s.to_owned()).into()))
         }
     }
 }

@@ -1,6 +1,9 @@
-lie.fake("echo foo", "foo");
-lie.fake("bar", "fds");
-lie.fake("baz", "r3");
+lie.run("echo foo", "foo");
+lie.run("bar", ["fds", "fdas"]);
+lie.run("baz", "r3");
+
+lie.system("echo asdf");
+lie.system("echo asdf", "echo FDSA<F4><F3><F2>");
 
 lie.prompt(#{
 	user: "methos",
@@ -14,6 +17,6 @@ lie.look(#{
 });
 
 lie.screen(|lie| {
-	lie.fake("man fdhsajkl", "as");
+	lie.run("man fdhsajkl", "as");
 	lie
 });

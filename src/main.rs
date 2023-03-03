@@ -45,7 +45,7 @@ fn main() {
         return init_example();
     }
 
-    for part in config::read(fname, args.unrestricted()).unwrap().parts() {
+    for part in config::read(fname, args.unrestricted()).unwrap().fibs() {
         println!("{part:?}");
     }
 
