@@ -1,88 +1,106 @@
 mod args;
-mod spoof;
+// mod spoof;
+mod config;
 
-use args::Args;
+use crate::args::Args;
 use clap::Parser;
-use spoof::Spoof;
-use std::env;
-use std::fs::File;
-use std::io::{BufWriter, Write};
+// use crate::spoof::Spoof;
+// use std::env;
+use std::fs::OpenOptions;
+use std::io::{self, BufWriter, Write};
+use std::process::ExitCode;
 
 const EXAMPLE: &str = r#"
-- cmd: mendax --help
-- print: |
-    A CLI spoofer
+lie.look(#{ title: "legit demo" });
 
-    Usage: mendax [OPTIONS] [file]
+lie.run("echo Hello, world", "Hello, world");
+lie.run("echo 'All of this is fake'", "'All of this is fake'");
 
-    Arguments:
-      [file]  YAML file describing the CLI to spoof [default: cli.yml]
+lie.cd("~");
 
-    Options:
-          --dir <DIR>             The current working directory of the fake command-line user [default: ~]
-          --host <HOST>           The host name of the fake command-line machine [env: HOST=] [default: ubuntu]
-          --typing-interval <ms>  The average time between typed characters [default: 45]
-          --user <USER>           The username of the fake command-line user [env: USER=kcza] [default: ubuntu]
-      -h, --help                  Print help information
-      -V, --version               Print version information
-- cmd: ls
-- print: |
-    cli.yml
-- cmd: cat cli.yml
-- print:
-    - "- cmd: mendax --help"
-    - "- print: |"
-    - "    A CLI spoofer"
-    - "..."
+lie.run("ls -A1", [
+    ".bash_history",
+    ".bashrc",
+    ".cargo",
+    ".rustup",
+    ".vimrc",
+    ".zshrc",
+    "Desktop",
+    "Documents",
+    "Downloads",
+    "snap",
+]);
 "#;
 
-fn main() {
+fn main() -> ExitCode {
     let args = Args::parse();
-    let input_fname = args.input();
+    let fname = args.input();
 
-    if input_fname == &Some("init".into()) {
-        init_example();
-        return;
+    if args.init().is_some() {
+        return match init_example(fname) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{}", e);
+                ExitCode::FAILURE
+            }
+        };
     }
 
-    let default_file = String::from("cli.yml");
-    let fname = input_fname.as_ref().unwrap_or(&default_file);
-    let spoof = match Spoof::from_file(&fname) {
-        Ok(s) => s,
+    let tale = match config::read(fname, args.unrestricted()) {
+        Ok(t) => t,
         Err(e) => {
-            if input_fname.is_none() && e.downcast_ref::<std::io::Error>().is_some() {
-                eprintln!(
-                    "no such file '{}'\nrun `{} init` to create an example file",
-                    fname,
-                    env::args().next().unwrap()
-                );
-            } else {
-                eprintln!("error parsing file '{}': {}", fname, e);
-            }
-            return;
+            eprintln!("{}", e);
+            return ExitCode::FAILURE;
         }
     };
 
-    ncurses::initscr();
-    ncurses::noecho();
+    for fib in tale.tale().fibs() {
+        println!("{fib:?}");
+    }
 
-    let window = {
-        let mut lines = 0;
-        let mut cols = 0;
-        ncurses::getmaxyx(ncurses::stdscr(), &mut cols, &mut lines);
-        ncurses::newwin(cols, lines, 0, 0)
-    };
-    ncurses::scrollok(window, true);
+    ExitCode::SUCCESS
 
-    spoof.run(&args, window);
+    // let spoof = match Spoof::from_file(fname) {
+    //     Ok(s) => s,
+    //     Err(e) => {
+    //         if e.downcast_ref::<std::io::Error>().is_some() {
+    //             eprintln!(
+    //                 "no such file '{}'\nrun `{} init` to create an example file",
+    //                 fname,
+    //                 env::args().next().unwrap()
+    //             );
+    //         } else {
+    //             eprintln!("error parsing file '{}': {}", fname, e);
+    //         }
+    //         return;
+    //     }
+    // };
 
-    ncurses::delwin(window);
-    ncurses::endwin();
+    // ncurses::initscr();
+    // ncurses::noecho();
+
+    // let window = {
+    //     let mut lines = 0;
+    //     let mut cols = 0;
+    //     ncurses::getmaxyx(ncurses::stdscr(), &mut cols, &mut lines);
+    //     ncurses::newwin(cols, lines, 0, 0)
+    // };
+    // ncurses::scrollok(window, true);
+
+    // spoof.run(&args, window);
+
+    // // Hang before exit
+    // ncurses::wgetch(window);
+
+    // ncurses::delwin(window);
+    // ncurses::endwin();
 }
 
-fn init_example() {
-    let f = File::create("cli.yml").unwrap();
+fn init_example(fname: &str) -> io::Result<()> {
+    let f = OpenOptions::new().create_new(true).open(fname)?;
     let mut w = BufWriter::new(f);
-    write!(w, "{}", &EXAMPLE[1..]).unwrap();
-    eprintln!("created example demo in 'cli.yml'\ncall `mendax` to run it");
+
+    write!(w, "{}", &EXAMPLE[1..])?;
+
+    Ok(())
 }

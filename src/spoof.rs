@@ -11,7 +11,7 @@ use std::{thread, time::Duration};
 #[serde(transparent)]
 pub struct Spoof {
     #[serde(flatten)]
-    stages: Vec<Stage>,
+    pub stages: Vec<Stage>,
 }
 
 impl Spoof {
@@ -46,6 +46,12 @@ impl Spoof {
             dir,
         })
         .render(args, window)
+    }
+}
+
+impl From<Vec<Stage>> for Spoof {
+    fn from(stages: Vec<Stage>) -> Self {
+        Self { stages }
     }
 }
 
