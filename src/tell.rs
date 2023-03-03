@@ -16,16 +16,11 @@ use std::{thread, time::Duration};
 use subprocess::Exec;
 
 pub trait Tell {
-    fn tell(&self, style: &mut Style, stdout: &mut StdoutLock)
-        -> Result<(), Box<dyn Error>>;
+    fn tell(&self, style: &mut Style, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>>;
 }
 
 impl Tell for Lie {
-    fn tell(
-        &self,
-        style: &mut Style,
-        stdout: &mut StdoutLock,
-    ) -> Result<(), Box<dyn Error>> {
+    fn tell(&self, style: &mut Style, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>> {
         terminal::enable_raw_mode()?;
         execute!(stdout, EnterAlternateScreen, Hide, DisableBlinking)?;
 
@@ -39,11 +34,7 @@ impl Tell for Lie {
 }
 
 impl Tell for Tale {
-    fn tell(
-        &self,
-        style: &mut Style,
-        stdout: &mut StdoutLock,
-    ) -> Result<(), Box<dyn Error>> {
+    fn tell(&self, style: &mut Style, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>> {
         for fib in self.fibs() {
             fib.tell(style, stdout)?;
         }
@@ -55,11 +46,7 @@ impl Tell for Tale {
 }
 
 impl Tell for Fib {
-    fn tell(
-        &self,
-        style: &mut Style,
-        stdout: &mut StdoutLock,
-    ) -> Result<(), Box<dyn Error>> {
+    fn tell(&self, style: &mut Style, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>> {
         match self {
             Self::Run { cmd, result } => {
                 if !style.screen_blank {
