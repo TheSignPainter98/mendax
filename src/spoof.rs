@@ -49,11 +49,11 @@ impl Spoof {
     }
 }
 
-// impl From<Vec<Stage>> for Spoof {
-//     fn from(stages: Vec<Stage>) -> Self {
-//         Self { stages }
-//     }
-// }
+impl From<Vec<Stage>> for Spoof {
+    fn from(stages: Vec<Stage>) -> Self {
+        Self { stages }
+    }
+}
 
 #[derive(Deserialise, Debug)]
 #[serde(untagged)]

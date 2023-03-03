@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 // use crate::spoof::Spoof;
 use lazy_static::lazy_static;
 use rhai::{Array, CustomType, Engine, EvalAltResult, Map, Scope, TypeBuilder};
