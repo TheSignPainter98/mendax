@@ -111,6 +111,7 @@ impl Lie {
         let mut user = None;
 
         {
+            #[allow(clippy::type_complexity)]
             let mut action_list: [(
                 &'static str,
                 Box<dyn FnMut(Dynamic) -> Result<(), Box<EvalAltResult>>>,
@@ -179,15 +180,18 @@ impl Lie {
                 }
 
                 if !found {
-                    return Err(Box::new(MendaxError::UnknownField {
-                        field: k.to_owned(),
-                        expected: {
-                            let mut expected: Vec<_> =
-                                action_list.iter().map(|(k, _)| k.to_owned()).collect();
-                            expected.sort();
-                            expected
-                        },
-                    }.into()));
+                    return Err(Box::new(
+                        MendaxError::UnknownField {
+                            field: k.to_owned(),
+                            expected: {
+                                let mut expected: Vec<_> =
+                                    action_list.iter().map(|(k, _)| k.to_owned()).collect();
+                                expected.sort();
+                                expected
+                            },
+                        }
+                        .into(),
+                    ));
                 }
             }
         }
