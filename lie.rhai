@@ -21,9 +21,4 @@ lie.look(#{
 
 lie.clear();
 
-// lie.screen(|lie| {
-// 	lie.run("man fdhsajkl", "as");
-// 	lie
-// });
-
 lie.system("ls", "echo asdf");
