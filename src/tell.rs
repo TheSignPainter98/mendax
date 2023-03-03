@@ -190,12 +190,6 @@ impl Style {
     }
 }
 
-lazy_static! {
-    static ref CWD: String = env::var("CWD").unwrap_or("~".into());
-    static ref HOST: String = env::var("HOST").unwrap_or("ubuntu".into());
-    static ref USER: String = env::var("USER").unwrap_or("ubuntu".into());
-}
-
 impl Default for Style {
     fn default() -> Self {
         Self {
@@ -203,9 +197,9 @@ impl Default for Style {
             speed: 0.040,
             fg: Colour::White,
             bg: Colour::Black,
-            cwd: CWD.clone(),
-            host: HOST.clone(),
-            user: USER.clone(),
+            cwd: "~".into(),
+            host: "ubuntu".into(),
+            user: "ubuntu".into(),
         }
     }
 }
