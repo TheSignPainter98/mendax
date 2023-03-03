@@ -1,15 +1,17 @@
 use crate::config::{Colour, Fib, Lie, Tale};
 use crossterm::{
+    cursor::{DisableBlinking, EnableBlinking, Hide, Show},
     event, execute,
-    terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, SetTitle},
+    style::Print,
+    terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, SetTitle},
     ExecutableCommand,
 };
 use lazy_static::lazy_static;
 use rand::Rng;
 use std::error::Error;
+use std::fmt::Display;
 use std::io::StdoutLock;
 use std::io::Write;
-use std::{env, fmt::Display};
 use std::{thread, time::Duration};
 use subprocess::Exec;
 
@@ -24,11 +26,13 @@ impl Tell for Lie {
         style: &mut Style,
         stdout: &'a mut StdoutLock,
     ) -> Result<(), Box<dyn Error>> {
-        execute!(stdout, EnterAlternateScreen).unwrap();
+        execute!(stdout, EnterAlternateScreen, Hide, DisableBlinking)?;
+        terminal::enable_raw_mode()?;
 
         let ret = self.tale().tell(style, stdout);
 
-        execute!(stdout, LeaveAlternateScreen).unwrap();
+        terminal::disable_raw_mode()?;
+        execute!(stdout, EnableBlinking, Show, LeaveAlternateScreen)?;
 
         ret
     }
@@ -44,7 +48,7 @@ impl Tell for Tale {
             fib.tell(style, stdout)?;
         }
 
-        event::read().unwrap();
+        event::read()?;
 
         Ok(())
     }
@@ -58,23 +62,36 @@ impl Tell for Fib {
     ) -> Result<(), Box<dyn Error>> {
         match self {
             Self::Run { cmd, result } => {
-                write!(stdout, "{}", style.ps1())?;
+                if !style.screen_blank {
+                    execute!(stdout, Print("\r\n"))?;
+                } else {
+                    style.screen_blank = false;
+                }
+
+                execute!(stdout, Print(style.ps1()))?;
                 stdout.flush()?;
 
+                execute!(stdout, Show, DisableBlinking)?;
                 event::read()?;
 
                 style.fake_type(stdout, cmd.chars().collect::<Vec<_>>().as_slice())?;
 
+                execute!(stdout, Hide, EnableBlinking)?;
                 event::read()?;
 
                 for line in result {
-                    writeln!(stdout, "{line}")?;
+                    execute!(stdout, Print("\r\n"), Print(line))?;
                 }
-
                 Ok(())
             }
             Self::System { apparent_cmd, cmd } => {
-                write!(stdout, "{}", style.ps1())?;
+                if !style.screen_blank {
+                    execute!(stdout, Print("\r\n"))?;
+                } else {
+                    style.screen_blank = false;
+                }
+
+                execute!(stdout, Print(style.ps1()))?;
                 stdout.flush()?;
 
                 event::read()?;
@@ -117,6 +134,7 @@ impl Tell for Fib {
             }
             Self::Clear => {
                 stdout.execute(Clear(ClearType::All))?;
+                style.screen_blank = true;
                 Ok(())
             }
         }
@@ -124,6 +142,7 @@ impl Tell for Fib {
 }
 
 pub struct Style {
+    screen_blank: bool,
     speed: f64,
     fg: Colour,
     bg: Colour,
@@ -152,7 +171,7 @@ impl Style {
                 thread::sleep(Duration::from_millis((interval * 1000.0) as u64));
             }
 
-            write!(stdout, "{t}")?;
+            execute!(stdout, Print(t))?;
             stdout.flush()?;
         }
 
@@ -169,6 +188,7 @@ lazy_static! {
 impl Default for Style {
     fn default() -> Self {
         Self {
+            screen_blank: true,
             speed: 0.040,
             fg: Colour::White,
             bg: Colour::Black,
