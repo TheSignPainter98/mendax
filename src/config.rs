@@ -123,7 +123,7 @@ impl Lie {
                 _ => {
                     let err = MendaxError::UnknownField {
                         field: k.as_str().to_owned(),
-                        expected: vec!["speed", "fg", "bg"],
+                        expected: vec!["speed", "fg", "bg", "title", "cwd", "host", "user"],
                     };
                     return Err(Box::new(EvalAltResult::ErrorSystem(
                         err.to_string(),
