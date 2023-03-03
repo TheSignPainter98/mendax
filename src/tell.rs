@@ -5,17 +5,25 @@ use crossterm::{
     ExecutableCommand,
 };
 use lazy_static::lazy_static;
-use std::env;
+use rand::Rng;
+use std::error::Error;
 use std::io::StdoutLock;
 use std::io::Write;
+use std::{env, fmt::Display};
+use std::{thread, time::Duration};
 use subprocess::Exec;
 
 pub trait Tell {
-    fn tell<'a>(&self, style: &mut Style, stdout: &'a mut StdoutLock) -> bool;
+    fn tell<'a>(&self, style: &mut Style, stdout: &'a mut StdoutLock)
+        -> Result<(), Box<dyn Error>>;
 }
 
 impl Tell for Lie {
-    fn tell<'a>(&self, style: &mut Style, stdout: &'a mut StdoutLock) -> bool {
+    fn tell<'a>(
+        &self,
+        style: &mut Style,
+        stdout: &'a mut StdoutLock,
+    ) -> Result<(), Box<dyn Error>> {
         execute!(stdout, EnterAlternateScreen).unwrap();
 
         let ret = self.tale().tell(style, stdout);
@@ -27,21 +35,27 @@ impl Tell for Lie {
 }
 
 impl Tell for Tale {
-    fn tell<'a>(&self, style: &mut Style, stdout: &'a mut StdoutLock) -> bool {
+    fn tell<'a>(
+        &self,
+        style: &mut Style,
+        stdout: &'a mut StdoutLock,
+    ) -> Result<(), Box<dyn Error>> {
         for fib in self.fibs() {
-            if !fib.tell(style, stdout) {
-                return false;
-            }
+            fib.tell(style, stdout)?;
         }
 
         event::read().unwrap();
 
-        true
+        Ok(())
     }
 }
 
 impl Tell for Fib {
-    fn tell<'a>(&self, style: &mut Style, stdout: &'a mut StdoutLock) -> bool {
+    fn tell<'a>(
+        &self,
+        style: &mut Style,
+        stdout: &'a mut StdoutLock,
+    ) -> Result<(), Box<dyn Error>> {
         match self {
             Self::Run { cmd, result } => {
                 write!(stdout, "{}", style.ps1()).unwrap();
@@ -50,9 +64,10 @@ impl Tell for Fib {
                 event::read().unwrap();
 
                 for line in result {
-                    writeln!(stdout, "{line}").unwrap();
+                    writeln!(stdout, "{line}")?;
                 }
-                true
+
+                Ok(())
             }
             Self::System { apparent_cmd, cmd } => {
                 write!(stdout, "{}", style.ps1()).unwrap();
@@ -89,12 +104,17 @@ impl Tell for Fib {
                 if let Some(user) = user {
                     style.user = user.clone();
                 }
+                if let Some(speed) = speed {
+                    style.speed = *speed;
+                }
                 // TODO(kcza): colour support?
 
-                true
+                Ok(())
             }
-            // Self::Screen { tale } => tale.tell(&mut style.child(), stdout),
-            Self::Clear => stdout.execute(Clear(ClearType::All)).is_ok(), // TODO(kcza): proper error handling
+            Self::Clear => {
+                stdout.execute(Clear(ClearType::All))?;
+                Ok(())
+            }
         }
     }
 }
@@ -109,15 +129,6 @@ pub struct Style {
 }
 
 impl Style {
-    fn child(&self) -> Self {
-        Self {
-            cwd: self.cwd.clone(),
-            host: self.host.clone(),
-            user: self.user.clone(),
-            ..Default::default()
-        }
-    }
-
     fn ps1(&self) -> String {
         format!("{}@{}:{}$ ", self.user, self.host, self.cwd)
     }
