@@ -7,7 +7,8 @@ use clap::Parser;
 // use crate::spoof::Spoof;
 // use std::env;
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::{self, BufWriter, Write};
+use std::process::ExitCode;
 
 const EXAMPLE: &str = r#"
 - cmd: mendax --help
@@ -35,19 +36,35 @@ const EXAMPLE: &str = r#"
     - "- print: |"
     - "    A CLI spoofer"
     - "..."
-"#;
+    "#;
 
-fn main() {
+fn main() -> ExitCode {
     let args = Args::parse();
     let fname = args.input();
 
     if args.init().is_some() {
-        return init_example();
+        return match init_example() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{}", e);
+                ExitCode::FAILURE
+            }
+        };
     }
 
-    for part in config::read(fname, args.unrestricted()).unwrap().fibs() {
-        println!("{part:?}");
+    let tale = match config::read(fname, args.unrestricted()) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("{}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+
+    for fib in tale.fibs() {
+        println!("{fib:?}");
     }
+
+    ExitCode::SUCCESS
 
     // let spoof = match Spoof::from_file(fname) {
     //     Ok(s) => s,
@@ -85,9 +102,11 @@ fn main() {
     // ncurses::endwin();
 }
 
-fn init_example() {
-    let f = File::create("cli.yml").unwrap();
+fn init_example() -> io::Result<()> {
+    let f = File::create("cli.yml")?;
     let mut w = BufWriter::new(f);
-    write!(w, "{}", &EXAMPLE[1..]).unwrap();
-    eprintln!("created example demo in 'cli.yml'\ncall `mendax` to run it");
+
+    write!(w, "{}", &EXAMPLE[1..])?;
+
+    Ok(())
 }

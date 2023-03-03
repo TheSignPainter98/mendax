@@ -3,8 +3,9 @@ use rhai::{
     Array, CustomType, Engine, EvalAltResult, FnPtr, Map, NativeCallContext, Scope, TypeBuilder,
 };
 use thiserror::Error;
+use lazy_static::lazy_static;
 
-pub fn read(fname: &str, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
+pub fn read(fname: &str, unrestricted: bool) -> Result<Tale, Box<EvalAltResult>> {
     let engine = engine(unrestricted);
 
     let mut scope = Scope::new();
@@ -13,7 +14,7 @@ pub fn read(fname: &str, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> 
     engine.run_file_with_scope(&mut scope, fname.into())?;
 
     let lie: Lie = scope.get_value("lie").unwrap();
-    Ok(lie)
+    Ok(lie.tale)
 }
 
 fn engine(unrestricted: bool) -> Engine {
@@ -183,7 +184,7 @@ impl Tale {
         self.0.push(fib)
     }
 
-    fn fibs(self) -> Vec<Fib> {
+    pub fn fibs(self) -> Vec<Fib> {
         self.0
     }
 }
@@ -199,8 +200,8 @@ pub enum MendaxError {
     #[error("system commands are forbidden at this sandbox level")]
     SystemForbidden,
 
-    #[error("unknown colour {0}, expected one of 'black' or 'red'")]
-    UnknownColour(String),
+    #[error("unknown colour {0}, expected one of {1:?}")]
+    UnknownColour(String, &'static [&'static str]),
 }
 
 impl From<MendaxError> for EvalAltResult {
@@ -245,6 +246,10 @@ static COLOURS: phf::Map<&'static str, Colour> = phf::phf_map! {
     "black" => Colour::Black,
 };
 
+lazy_static! {
+    static ref COLOUR_NAMES: Vec<&'static str> = COLOURS.keys().map(|s| (*s).into()).collect();
+}
+
 impl TryFrom<&str> for Colour {
     type Error = Box<EvalAltResult>;
 
@@ -252,7 +257,7 @@ impl TryFrom<&str> for Colour {
         if let Some(c) = COLOURS.get(s) {
             Ok(*c)
         } else {
-            Err(Box::new(MendaxError::UnknownColour(s.to_owned()).into()))
+            Err(Box::new(MendaxError::UnknownColour(s.to_owned().into(), &COLOUR_NAMES).into()))
         }
     }
 }
