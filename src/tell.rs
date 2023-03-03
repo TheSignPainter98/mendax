@@ -3,7 +3,7 @@ use crossterm::{
     cursor::{DisableBlinking, EnableBlinking, Hide, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
-    style::Print,
+    style::{Print, Stylize},
     terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, SetTitle},
     ExecutableCommand,
 };
@@ -49,10 +49,10 @@ impl Tell for Fib {
     fn tell(&self, style: &mut Style, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>> {
         match self {
             Self::Run { cmd, result } => {
-                if !style.screen_blank {
+                if style.insert_newline {
                     execute!(stdout, Print("\r\n"))?;
                 } else {
-                    style.screen_blank = false;
+                    style.insert_newline = false;
                 }
 
                 execute!(stdout, Print(style.ps1()))?;
@@ -69,13 +69,14 @@ impl Tell for Fib {
                 for line in result {
                     execute!(stdout, Print("\r\n"), Print(line))?;
                 }
+                style.insert_newline = true;
                 Ok(())
             }
             Self::System { apparent_cmd, cmd } => {
-                if !style.screen_blank {
+                if style.insert_newline {
                     execute!(stdout, Print("\r\n"))?;
                 } else {
-                    style.screen_blank = false;
+                    style.insert_newline = false;
                 }
 
                 execute!(stdout, Print(style.ps1()))?;
@@ -87,7 +88,9 @@ impl Tell for Fib {
 
                 pause()?;
 
+                execute!(stdout, Print("\r\n"))?;
                 Exec::shell(cmd).join()?;
+                style.insert_newline = false;
 
                 Ok(())
             }
@@ -121,7 +124,7 @@ impl Tell for Fib {
             }
             Self::Clear => {
                 stdout.execute(Clear(ClearType::All))?;
-                style.screen_blank = true;
+                style.insert_newline = false;
                 Ok(())
             }
         }
@@ -143,7 +146,7 @@ fn pause() -> Result<(), Box<dyn Error>> {
 }
 
 pub struct Style {
-    screen_blank: bool,
+    insert_newline: bool,
     speed: f64,
 
     #[allow(unused)]
@@ -158,7 +161,13 @@ pub struct Style {
 
 impl Style {
     fn ps1(&self) -> String {
-        format!("{}@{}:{}$ ", self.user, self.host, self.cwd)
+        format!(
+            "{}{}{}:{}$ ",
+            self.user.as_str().bold().green(),
+            "@".bold().green(),
+            self.host.as_str().bold().green(),
+            self.cwd.as_str().blue().bold()
+        )
     }
 
     fn fake_type<T: Display>(
@@ -187,7 +196,7 @@ impl Style {
 impl Default for Style {
     fn default() -> Self {
         Self {
-            screen_blank: true,
+            insert_newline: false,
             speed: 0.040,
             fg: Colour::White,
             bg: Colour::Black,
