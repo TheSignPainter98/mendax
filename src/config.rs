@@ -247,11 +247,13 @@ pub enum Fib {
 pub enum Colour {
     Red,
     Black,
+    White,
 }
 
 static COLOURS: phf::Map<&'static str, Colour> = phf::phf_map! {
     "red"   => Colour::Red,
     "black" => Colour::Black,
+    "white" => Colour::White,
 };
 
 lazy_static! {
