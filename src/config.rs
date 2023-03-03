@@ -53,9 +53,9 @@ impl Lie {
         &self.tale
     }
 
-    fn child(&self) -> Self {
-        Self::new(self.allow_system)
-    }
+    // fn child(&self) -> Self {
+    //     Self::new(self.allow_system)
+    // }
 
     fn run_short(&mut self, cmd: &str, result: &str) {
         self.run(cmd, vec![result.into()])
