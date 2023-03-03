@@ -3,20 +3,27 @@ lie.run("bar", ["fds", "fdas"]);
 lie.run("baz", "r3");
 
 lie.system("echo asdf");
-lie.system("echo asdf", "echo FDSA<F4><F3><F2>");
+lie.system("ls", "echo asdf");
 
 lie.prompt(#{
 	user: "methos",
 	host: "gaia",
-	cwd: "root",
+	cwd: "/",
 });
+
+lie.run("baz", "r3");
 
 lie.look(#{
 	fg: "red",
 	bg: "black",
+	title: "hfjdkla",
 });
 
-lie.screen(|lie| {
-	lie.run("man fdhsajkl", "as");
-	lie
-});
+lie.clear();
+
+// lie.screen(|lie| {
+// 	lie.run("man fdhsajkl", "as");
+// 	lie
+// });
+
+lie.system("ls", "echo asdf");

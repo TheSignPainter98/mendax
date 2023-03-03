@@ -1,6 +1,6 @@
 // use crate::spoof::Spoof;
 use rhai::{
-    Array, CustomType, Engine, EvalAltResult, FnPtr, Map, NativeCallContext, Scope, TypeBuilder,
+    Array, CustomType, Engine, EvalAltResult, Map, Scope, TypeBuilder,
 };
 use thiserror::Error;
 use lazy_static::lazy_static;
@@ -148,14 +148,14 @@ impl Lie {
         Ok(())
     }
 
-    fn screen(ctx: NativeCallContext, lie: &mut Self, f: FnPtr) -> Result<(), Box<EvalAltResult>> {
-        let child = lie.child();
-        let child: Lie = f.call_within_context(&ctx, (child,))?;
+    // fn screen(ctx: NativeCallContext, lie: &mut Self, f: FnPtr) -> Result<(), Box<EvalAltResult>> {
+    //     let child = lie.child();
+    //     let child: Lie = f.call_within_context(&ctx, (child,))?;
 
-        lie.tale.push(Fib::Screen { parts: child.tale });
+    //     lie.tale.push(Fib::Screen { tale: child.tale });
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }
 
 impl CustomType for Lie {
@@ -167,7 +167,8 @@ impl CustomType for Lie {
             .with_fn("system", Self::system_simple)
             .with_fn("system", Self::system)
             .with_fn("prompt", Self::prompt)
-            .with_fn("screen", Self::screen)
+            // .with_fn("screen", Self::screen)
+            .with_fn("clear", Self::clear)
             .with_fn("look", Self::look);
     }
 }
