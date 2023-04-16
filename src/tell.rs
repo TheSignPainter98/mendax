@@ -1,11 +1,10 @@
 use crate::config::{Colour, Fib, Lie, MendaxError, Tale};
 use crossterm::{
-    cursor::{DisableBlinking, EnableBlinking, Hide, Show},
+    cursor::{DisableBlinking, EnableBlinking, Hide, MoveTo, RestorePosition, SavePosition, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     style::{Print, Stylize},
     terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, SetTitle},
-    ExecutableCommand,
 };
 use rand::Rng;
 use std::error::Error;
@@ -16,17 +15,35 @@ use std::{thread, time::Duration};
 use subprocess::Exec;
 
 pub trait Tell {
-    fn tell(&self, style: &mut Style, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>>;
+    fn tell(&self, stdout: &mut StdoutLock, style: &mut Style) -> Result<(), Box<dyn Error>>;
 }
 
 impl Tell for Lie {
-    fn tell(&self, style: &mut Style, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>> {
+    fn tell(&self, stdout: &mut StdoutLock, style: &mut Style) -> Result<(), Box<dyn Error>> {
         terminal::enable_raw_mode()?;
-        execute!(stdout, EnterAlternateScreen, Hide, DisableBlinking)?;
+        execute!(
+            stdout,
+            Hide,
+            DisableBlinking,
+            Clear(ClearType::All),
+            MoveTo(0, 0)
+        )?;
 
-        let ret = self.tale().tell(style, stdout);
+        let ret = self.tale().tell(stdout, style);
 
-        execute!(stdout, EnableBlinking, Show, LeaveAlternateScreen)?;
+        if style.final_prompt {
+            Fib::Run {
+                cmd: String::new(),
+                result: vec![],
+            }
+            .tell(stdout, style)?;
+        }
+
+        if style.insert_newline {
+            execute!(stdout, Print("\r\n"))?;
+        }
+
+        execute!(stdout, EnableBlinking, Show)?;
         terminal::disable_raw_mode()?;
 
         ret
@@ -34,65 +51,73 @@ impl Tell for Lie {
 }
 
 impl Tell for Tale {
-    fn tell(&self, style: &mut Style, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>> {
+    fn tell(&self, stdout: &mut StdoutLock, style: &mut Style) -> Result<(), Box<dyn Error>> {
         for fib in self.fibs() {
-            fib.tell(style, stdout)?;
+            fib.tell(stdout, style)?;
         }
-
-        pause()?;
 
         Ok(())
     }
 }
 
 impl Tell for Fib {
-    fn tell(&self, style: &mut Style, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>> {
+    fn tell(&self, stdout: &mut StdoutLock, style: &mut Style) -> Result<(), Box<dyn Error>> {
         match self {
             Self::Run { cmd, result } => {
                 if style.insert_newline {
                     execute!(stdout, Print("\r\n"))?;
-                } else {
-                    style.insert_newline = false;
                 }
 
-                execute!(stdout, Print(style.ps1()))?;
-                stdout.flush()?;
-
-                execute!(stdout, Show, DisableBlinking)?;
-                pause()?;
-
-                style.fake_type(stdout, cmd.chars().collect::<Vec<_>>().as_slice())?;
-
-                execute!(stdout, Hide, EnableBlinking)?;
-                pause()?;
+                prompt(stdout, style, cmd)?;
 
                 for line in result {
-                    execute!(stdout, Print("\r\n"), Print(line))?;
+                    execute!(stdout, Print(line), Print("\r\n"))?;
                 }
-                style.insert_newline = true;
+
+                style.insert_newline = false;
+
+                Ok(())
+            }
+            Self::Show { text } => {
+                if style.insert_newline {
+                    execute!(stdout, Print("\r\n"))?;
+                }
+
+                execute!(stdout, Print(text), Print("\r\n"))?;
+                style.insert_newline = false;
+
                 Ok(())
             }
             Self::System { apparent_cmd, cmd } => {
                 if style.insert_newline {
                     execute!(stdout, Print("\r\n"))?;
-                } else {
-                    style.insert_newline = false;
                 }
 
-                execute!(stdout, Print(style.ps1()))?;
-                stdout.flush()?;
+                prompt(stdout, style, apparent_cmd.as_ref().unwrap_or(cmd))?;
 
-                pause()?;
-
-                style.fake_type(stdout, apparent_cmd.chars().collect::<Vec<_>>().as_slice())?;
-
-                pause()?;
-
-                execute!(stdout, Print("\r\n"))?;
                 Exec::shell(cmd).join()?;
                 style.insert_newline = false;
 
                 Ok(())
+            }
+            Self::Screen { apparent_cmd, tale } => {
+                if style.insert_newline {
+                    execute!(stdout, Print("\r\n"))?;
+                }
+
+                if let Some(apparent_cmd) = apparent_cmd {
+                    prompt(stdout, style, apparent_cmd)?;
+                }
+
+                execute!(stdout, EnterAlternateScreen, SavePosition, MoveTo(0, 0))?;
+
+                style.insert_newline = false;
+                let ret = tale.tell(stdout, style);
+
+                pause()?;
+
+                execute!(stdout, RestorePosition, LeaveAlternateScreen)?;
+                ret
             }
             Self::Look {
                 speed,
@@ -102,6 +127,7 @@ impl Tell for Fib {
                 cwd,
                 host,
                 user,
+                final_prompt,
             } => {
                 if let Some(title) = title {
                     execute!(stdout, SetTitle(title)).unwrap();
@@ -118,17 +144,37 @@ impl Tell for Fib {
                 if let Some(speed) = speed {
                     style.speed = *speed;
                 }
+                if let Some(final_prompt) = final_prompt {
+                    style.final_prompt = *final_prompt;
+                }
                 // TODO(kcza): colour support?
 
                 Ok(())
             }
             Self::Clear => {
-                stdout.execute(Clear(ClearType::All))?;
+                execute!(stdout, Clear(ClearType::All))?;
                 style.insert_newline = false;
                 Ok(())
             }
         }
     }
+}
+
+fn prompt(stdout: &mut StdoutLock, style: &mut Style, cmd: &str) -> Result<(), Box<dyn Error>> {
+    execute!(stdout, Print(style.ps1()))?;
+    execute!(stdout, Show, DisableBlinking)?;
+    stdout.flush()?;
+
+    pause()?;
+    if !cmd.is_empty() {
+        style.fake_type(stdout, cmd.chars().collect::<Vec<_>>().as_slice())?;
+        pause()?;
+    }
+    execute!(stdout, Hide, EnableBlinking)?;
+    execute!(stdout, Print("\r\n"))?;
+    stdout.flush()?;
+
+    Ok(())
 }
 
 fn pause() -> Result<(), Box<dyn Error>> {
@@ -151,12 +197,13 @@ pub struct Style {
 
     #[allow(unused)]
     fg: Colour,
-
     #[allow(unused)]
     bg: Colour,
+
     cwd: String,
     host: String,
     user: String,
+    final_prompt: bool,
 }
 
 impl Style {
@@ -203,6 +250,7 @@ impl Default for Style {
             cwd: "~".into(),
             host: "ubuntu".into(),
             user: "ubuntu".into(),
+            final_prompt: true,
         }
     }
 }

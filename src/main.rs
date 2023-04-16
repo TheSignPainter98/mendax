@@ -47,7 +47,7 @@ fn main() -> ExitCode {
         };
     }
 
-    let tale = match config::read(fname, args.unrestricted()) {
+    let lie = match config::read(fname, args.unrestricted()) {
         Ok(t) => t,
         Err(e) => {
             eprintln!("{}", e);
@@ -55,7 +55,7 @@ fn main() -> ExitCode {
         }
     };
 
-    match tale.tell(&mut Style::default(), &mut stdout().lock()) {
+    match lie.tell(&mut stdout().lock(), &mut Style::default()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{e}");
