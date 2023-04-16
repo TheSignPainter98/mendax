@@ -3,7 +3,7 @@ lie.run("bar", ["fds", "fdas"]);
 lie.run("baz", "r3");
 
 lie.system("echo asdf");
-lie.system("ls", "echo asdf");
+lie.system("echo asdf", "ls");
 
 lie.run("baz", "r3");
 
@@ -16,6 +16,11 @@ lie.look(#{
 	host: "gaia",
 });
 
-lie.clear();
-
-lie.system("ls", "super-cool-command-not-ls");
+for cmd in ["foo", "bar", "baz"] {
+	lie.screen("man " + cmd, |lie| {
+		lie.show("hello, this is the manual page for " + cmd);
+		lie.show("unfortunately this does not currently exist");
+		lie.show("...");
+		lie.show("sorry not sorry");
+	})
+}
