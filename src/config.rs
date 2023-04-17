@@ -5,7 +5,7 @@ use rhai::{
 };
 use std::{
     cell::{Ref, RefCell, RefMut},
-    rc::Rc,
+    rc::Rc, fmt::Display,
 };
 use thiserror::Error;
 
@@ -489,6 +489,16 @@ pub enum Colour {
     Red,
     Black,
     White,
+}
+
+impl Display for Colour {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Red => "red",
+            Self::Black => "black",
+            Self::White => "white",
+        }.fmt(f)
+    }
 }
 
 static COLOURS: phf::Map<&'static str, Colour> = phf::phf_map! {
