@@ -1,23 +1,24 @@
 mod args;
 mod config;
-mod tell;
-mod init;
 mod dry_run;
+mod init;
+mod tell;
 
 use crate::args::Args;
 use crate::tell::Tell;
 use clap::Parser;
+use dry_run::DryRun;
 use std::io::stdout;
+use std::path::PathBuf;
 use std::process::ExitCode;
 use tell::Style;
-use dry_run::DryRun;
 
 fn main() -> ExitCode {
     let args = Args::parse();
-    let fname = args.input();
+    let fname = PathBuf::from(args.input());
 
     if args.init() {
-        return init::init(fname);
+        return init::init(&fname);
     }
 
     let lie = match config::read(fname, args.unrestricted()) {
