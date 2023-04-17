@@ -5,17 +5,27 @@ use rhai::{
 };
 use std::{
     cell::{Ref, RefCell, RefMut},
+    path::Path,
     rc::Rc,
 };
 use thiserror::Error;
 
-pub fn read<T: AsRef<str>>(fname: T, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
+pub fn read<P: AsRef<Path>>(fname: P, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
+    let fname = {
+        let fname = fname.as_ref();
+        if fname.extension().is_none() {
+            fname.with_extension("rhai")
+        } else {
+            fname.into()
+        }
+    };
+
     let engine = engine(unrestricted);
 
     let mut scope = Scope::new();
     scope.push("lie", SharedLieBuilder::new(unrestricted));
 
-    engine.run_file_with_scope(&mut scope, fname.as_ref().into())?;
+    engine.run_file_with_scope(&mut scope, fname)?;
 
     scope.get_value::<SharedLieBuilder>("lie").unwrap().build()
 }
@@ -521,8 +531,11 @@ impl TryFrom<&str> for Colour {
 
 #[cfg(test)]
 mod test {
+    use tempfile::TempDir;
+
     use super::*;
-    use std::{error::Error, fs};
+    use std::{error::Error, fs::{self, File}, io::Write};
+    use crate::config;
 
     fn test_script(unrestricted: bool, script: &str) -> Result<Lie, Box<dyn Error>> {
         let dir = tempfile::tempdir()?;
@@ -531,6 +544,19 @@ mod test {
         fs::write(lie_path, script)?;
 
         read(lie_path.as_os_str().to_str().unwrap(), unrestricted).map_err(|e| e.into())
+    }
+
+    #[test]
+    fn file_extension_optional() -> Result<(), Box<dyn Error>> {
+        let tmpdir = TempDir::new()?;
+        let path = tmpdir.path().join("tester.rhai");
+        let mut file = File::create(&path)?;
+        file.write_all(r#"lie.show("hello");"#.as_bytes())?;
+
+        assert!(config::read(&path, false).is_ok());
+        assert!(config::read(path.with_extension(""), false).is_ok());
+
+        Ok(())
     }
 
     #[test]
