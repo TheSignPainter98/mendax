@@ -8,13 +8,17 @@ pub struct Args {
     #[arg()]
     init: Option<Init>,
 
-    /// YAML file describing the CLI to spoof
+    /// A script describing the CLI to spoof
     #[arg(long, value_name = "spec", default_value_t = String::from("lie.rhai"))]
     spec: String,
 
-    /// Allow exectution of arbitrary shell commands
+    /// Allow execution of arbitrary shell commands
     #[arg(long = "unsafe")]
     unrestricted: bool,
+
+    /// Output all commands which would be run
+    #[arg(long)]
+    dry_run: bool,
 }
 
 impl Args {
@@ -28,6 +32,10 @@ impl Args {
 
     pub fn unrestricted(&self) -> bool {
         self.unrestricted
+    }
+
+    pub fn dry_run(&self) -> bool {
+        self.dry_run
     }
 }
 
