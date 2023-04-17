@@ -16,6 +16,8 @@ lie.look(#{
 	host: "gaia",
 });
 
+lie.cd("/bar/baz");
+
 for cmd in ["foo", "bar", "baz"] {
 	lie.screen("man " + cmd, |lie| {
 		lie.show("hello, this is the manual page for " + cmd);

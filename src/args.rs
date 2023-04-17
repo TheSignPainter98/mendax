@@ -15,6 +15,10 @@ pub struct Args {
     /// Allow exectution of arbitrary shell commands
     #[arg(long = "unsafe")]
     unrestricted: bool,
+
+    /// Output all commands which would be run
+    #[arg(long)]
+    dry_run: bool,
 }
 
 impl Args {
@@ -28,6 +32,10 @@ impl Args {
 
     pub fn unrestricted(&self) -> bool {
         self.unrestricted
+    }
+
+    pub fn dry_run(&self) -> bool {
+        self.dry_run
     }
 }
 
