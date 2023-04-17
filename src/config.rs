@@ -5,6 +5,7 @@ use rhai::{
 };
 use std::{
     cell::{Ref, RefCell, RefMut},
+    fmt::Display,
     path::Path,
     rc::Rc,
 };
@@ -501,6 +502,17 @@ pub enum Colour {
     White,
 }
 
+impl Display for Colour {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Red => "red",
+            Self::Black => "black",
+            Self::White => "white",
+        }
+        .fmt(f)
+    }
+}
+
 static COLOURS: phf::Map<&'static str, Colour> = phf::phf_map! {
     "red"   => Colour::Red,
     "black" => Colour::Black,
@@ -534,8 +546,12 @@ mod test {
     use tempfile::TempDir;
 
     use super::*;
-    use std::{error::Error, fs::{self, File}, io::Write};
     use crate::config;
+    use std::{
+        error::Error,
+        fs::{self, File},
+        io::Write,
+    };
 
     fn test_script(unrestricted: bool, script: &str) -> Result<Lie, Box<dyn Error>> {
         let dir = tempfile::tempdir()?;
