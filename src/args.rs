@@ -13,7 +13,7 @@ pub struct Args {
     spec: String,
 
     /// Allow execution of arbitrary shell commands
-    #[arg(long = "unsafe")]
+    #[arg(long = "unleash")]
     unrestricted: bool,
 
     /// Output all commands which would be run
