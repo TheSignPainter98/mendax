@@ -5,19 +5,50 @@ use rhai::{
 };
 use std::{
     cell::{Ref, RefCell, RefMut},
-    rc::Rc, fmt::Display,
+    fmt::Display,
+    fs,
+    path::Path,
+    rc::Rc,
 };
 use thiserror::Error;
 
-pub fn read<T: AsRef<str>>(fname: T, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
+pub fn read<P: AsRef<Path>>(fname: P, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
+    let fname = fname.as_ref();
+
     let engine = engine(unrestricted);
 
     let mut scope = Scope::new();
     scope.push("lie", SharedLieBuilder::new(unrestricted));
 
-    engine.run_file_with_scope(&mut scope, fname.as_ref().into())?;
+    let src = get_src(fname)?;
+    let ast = engine.compile_with_scope(&scope, src)?;
+    engine.run_ast_with_scope(&mut scope, &ast)?;
 
     scope.get_value::<SharedLieBuilder>("lie").unwrap().build()
+}
+
+fn get_src(fname: &Path) -> Result<String, Box<EvalAltResult>> {
+    let exact = fs::read_to_string(fname);
+    let inferred = fs::read_to_string((fname.to_string_lossy() + ".rhai").to_string());
+    if exact.is_ok() && inferred.is_ok() {
+        return Err(Box::new(EvalAltResult::ErrorSystem(
+            "failed to load spec".into(),
+            Box::new(MendaxError::AmbiguousInput {
+                f1: fname.to_string_lossy().to_string(),
+                f2: fname.to_string_lossy().to_string() + ".rhai",
+            }),
+        )));
+    }
+    exact.or(inferred).map_err(|e| {
+        Box::new(EvalAltResult::ErrorSystem(
+            format!(
+                "could not read file '{}' or '{}.rhai'",
+                fname.display(),
+                fname.display()
+            ),
+            Box::new(e),
+        ))
+    })
 }
 
 fn engine(unrestricted: bool) -> Engine {
@@ -446,6 +477,9 @@ pub enum MendaxError {
 
     #[error("cannot nest screens")]
     NestedScreens,
+
+    #[error("both {f1} and {f2} exist")]
+    AmbiguousInput { f1: String, f2: String },
 }
 
 impl From<MendaxError> for EvalAltResult {
@@ -497,7 +531,8 @@ impl Display for Colour {
             Self::Red => "red",
             Self::Black => "black",
             Self::White => "white",
-        }.fmt(f)
+        }
+        .fmt(f)
     }
 }
 
@@ -531,8 +566,15 @@ impl TryFrom<&str> for Colour {
 
 #[cfg(test)]
 mod test {
+    use tempfile::TempDir;
+    use regex::Regex;
     use super::*;
-    use std::{error::Error, fs};
+    use crate::config;
+    use std::{
+        error::Error,
+        fs::{self, File},
+        io::Write,
+    };
 
     fn test_script(unrestricted: bool, script: &str) -> Result<Lie, Box<dyn Error>> {
         let dir = tempfile::tempdir()?;
@@ -541,6 +583,19 @@ mod test {
         fs::write(lie_path, script)?;
 
         read(lie_path.as_os_str().to_str().unwrap(), unrestricted).map_err(|e| e.into())
+    }
+
+    #[test]
+    fn file_extension_optional() -> Result<(), Box<dyn Error>> {
+        let tmpdir = TempDir::new()?;
+        let path = tmpdir.path().join("tester.rhai");
+        let mut file = File::create(&path)?;
+        file.write_all(r#"lie.show("hello");"#.as_bytes())?;
+
+        assert!(config::read(&path, false).is_ok());
+        assert!(config::read(path.with_extension(""), false).is_ok());
+
+        Ok(())
     }
 
     #[test]
@@ -797,6 +852,23 @@ mod test {
             test_script(false, r#"lie.clear()"#)?.tale().fibs(),
             &[Fib::Clear]
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn ambiguous_files_rejected() -> Result<(), Box<dyn Error>> {
+        let dir = tempfile::tempdir()?;
+        let lie_path_exact = &dir.path().join("test-lie");
+        let lie_path_inferred = &dir.path().join("test-lie.rhai");
+
+        fs::write(lie_path_exact, r#"lie.show("asdf")"#)?;
+        fs::write(lie_path_inferred, r#"lie.show("asdf")"#)?;
+
+        let err_string = read(lie_path_exact.as_os_str().to_str().unwrap(), false).unwrap_err().to_string();
+
+        let re = Regex::new("^failed to load spec: both .* and .* exist$").unwrap();
+        assert!(re.is_match(&err_string), "unexpected error: {err_string}");
 
         Ok(())
     }

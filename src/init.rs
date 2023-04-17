@@ -1,7 +1,7 @@
 use std::{
     fs::OpenOptions,
     io::{self, BufWriter, Write},
-    process::ExitCode,
+    process::ExitCode, path::Path,
 };
 
 const EXAMPLE: &str = r#"
@@ -26,7 +26,7 @@ lie.run("ls -A1", [
 ]);
 "#;
 
-pub fn init(fname: &str) -> ExitCode {
+pub fn init(fname: &Path) -> ExitCode {
     match init_example(fname) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
@@ -36,7 +36,7 @@ pub fn init(fname: &str) -> ExitCode {
     }
 }
 
-fn init_example(fname: &str) -> io::Result<()> {
+fn init_example(fname: &Path) -> io::Result<()> {
     let f = OpenOptions::new()
         .create_new(true)
         .write(true)
@@ -61,7 +61,7 @@ mod test {
         let tmp_dir = TempDir::new("mendax_test_valid")?;
 
         let example_lie = tmp_dir.path().join("foo.rhai");
-        init_example(example_lie.to_string_lossy().as_ref())?;
+        init_example(&example_lie)?;
 
         let result = config::read(example_lie.to_string_lossy().as_ref(), false);
         assert!(
