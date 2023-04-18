@@ -1,4 +1,4 @@
-use crate::config::{Colour, Fib, Lie, MendaxError, Tale};
+use crate::config::{Fib, Lie, MendaxError, Tale};
 use crossterm::{
     cursor::{DisableBlinking, EnableBlinking, Hide, MoveTo, RestorePosition, SavePosition, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
@@ -121,8 +121,6 @@ impl Tell for Fib {
             }
             Self::Look {
                 speed,
-                fg: _,
-                bg: _,
                 title,
                 cwd,
                 host,
@@ -194,12 +192,6 @@ fn pause() -> Result<(), Box<dyn Error>> {
 pub struct Style {
     insert_newline: bool,
     speed: f64,
-
-    #[allow(unused)]
-    fg: Colour,
-    #[allow(unused)]
-    bg: Colour,
-
     cwd: String,
     host: String,
     user: String,
@@ -245,8 +237,6 @@ impl Default for Style {
         Self {
             insert_newline: false,
             speed: 0.040,
-            fg: Colour::White,
-            bg: Colour::Black,
             cwd: "~".into(),
             host: "ubuntu".into(),
             user: "ubuntu".into(),
