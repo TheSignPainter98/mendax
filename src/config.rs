@@ -502,15 +502,15 @@ pub enum Fib {
 
 #[cfg(test)]
 mod test {
-    use tempfile::TempDir;
-    use regex::Regex;
     use super::*;
     use crate::config;
+    use regex::Regex;
     use std::{
         error::Error,
         fs::{self, File},
         io::Write,
     };
+    use tempfile::TempDir;
 
     fn test_script(unrestricted: bool, script: &str) -> Result<Lie, Box<dyn Error>> {
         let dir = tempfile::tempdir()?;
@@ -793,7 +793,9 @@ mod test {
         fs::write(lie_path_exact, r#"lie.show("asdf")"#)?;
         fs::write(lie_path_inferred, r#"lie.show("asdf")"#)?;
 
-        let err_string = read(lie_path_exact.as_os_str().to_str().unwrap(), false).unwrap_err().to_string();
+        let err_string = read(lie_path_exact.as_os_str().to_str().unwrap(), false)
+            .unwrap_err()
+            .to_string();
 
         let re = Regex::new("^failed to load spec: both .* and .* exist$").unwrap();
         assert!(re.is_match(&err_string), "unexpected error: {err_string}");

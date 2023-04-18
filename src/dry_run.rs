@@ -62,22 +62,26 @@ impl DryRun for Fib {
             }
             Self::System { apparent_cmd, cmd } => {
                 if let Some(apparent_cmd) = apparent_cmd {
-                    builder.add_line(
-                        format!("! {apparent_cmd} (secretly calls: {cmd})"),
-                        depth,
-                    );
+                    builder.add_line(format!("! {apparent_cmd} (secretly calls: {cmd})"), depth);
                 } else {
                     builder.add_line(format!("$ {cmd}"), depth);
                 }
             }
-            Self::Screen{ apparent_cmd, tale } => {
+            Self::Screen { apparent_cmd, tale } => {
                 if let Some(apparent_cmd) = apparent_cmd {
                     builder.add_line(format!("$ {apparent_cmd}"), depth)
                 }
                 builder.add_line("SCREEN", depth);
                 tale.build_dry_run(builder, depth + 1);
             }
-            Self::Look { speed, title, cwd, user, host, final_prompt } => {
+            Self::Look {
+                speed,
+                title,
+                cwd,
+                user,
+                host,
+                final_prompt,
+            } => {
                 let mut to_change = vec![];
                 if let Some(speed) = speed {
                     to_change.push(("speed", speed.to_string()));
@@ -98,7 +102,17 @@ impl DryRun for Fib {
                     to_change.push(("speed", final_prompt.to_string()));
                 }
 
-                builder.add_line(format!("STYLE: {}", to_change.iter().map(|(field, value)| format!("{field}={value}")).collect::<Vec<_>>().join(", ")), depth);
+                builder.add_line(
+                    format!(
+                        "STYLE: {}",
+                        to_change
+                            .iter()
+                            .map(|(field, value)| format!("{field}={value}"))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                    depth,
+                );
             }
             Self::Clear => builder.add_line("CLEAR", depth),
         }
