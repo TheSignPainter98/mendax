@@ -3,16 +3,15 @@ use crossterm::{
     cursor::{DisableBlinking, EnableBlinking, Hide, MoveTo, RestorePosition, SavePosition, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
-    style::{Print, Stylize},
+    style::{Print, Stylize, Attribute, SetAttribute},
     terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, SetTitle},
 };
 use rand::Rng;
 use std::error::Error;
 use std::fmt::Display;
-use std::io::StdoutLock;
-use std::io::Write;
+use std::io::{Read, StdoutLock, Write};
 use std::{thread, time::Duration};
-use subprocess::Exec;
+use subprocess::{Exec, Redirection};
 
 pub trait Tell {
     fn tell(&self, stdout: &mut StdoutLock, style: &mut Style) -> Result<(), Box<dyn Error>>;
@@ -95,7 +94,32 @@ impl Tell for Fib {
 
                 prompt(stdout, style, apparent_cmd.as_ref().unwrap_or(cmd))?;
 
-                Exec::shell(cmd).join()?;
+                let out = Exec::shell(cmd)
+                    .stderr(Redirection::Merge)
+                    .stream_stdout()?;
+                let mut final_newline = false;
+                let mut stdout_nonempty = false;
+                for b in out.bytes() {
+                    stdout_nonempty = true;
+                    let b = b?;
+                    if b == '\n' as u8 {
+                        final_newline = true;
+                        execute!(stdout, Print("\r\n"))?;
+                    } else {
+                        final_newline = false;
+                        stdout.write(&[b])?;
+                    }
+                }
+                if stdout_nonempty && !final_newline {
+                    execute!(
+                        stdout,
+                        SetAttribute(Attribute::Reverse),
+                        Print("%"),
+                        SetAttribute(Attribute::Reset),
+                        Print("\r\n")
+                    )?;
+                }
+                execute!(stdout, SetAttribute(Attribute::Reset))?;
                 style.insert_newline = false;
 
                 Ok(())
