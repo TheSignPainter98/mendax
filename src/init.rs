@@ -1,7 +1,8 @@
 use std::{
     fs::OpenOptions,
     io::{self, BufWriter, Write},
-    process::ExitCode, path::Path,
+    path::Path,
+    process::ExitCode,
 };
 
 const EXAMPLE: &str = r#"
@@ -64,11 +65,7 @@ mod test {
         init_example(&example_lie)?;
 
         let result = config::read(example_lie.to_string_lossy().as_ref(), false);
-        assert!(
-            result.is_ok(),
-            "unexpected error: {}",
-            result.unwrap_err()
-        );
+        assert!(result.is_ok(), "unexpected error: {}", result.unwrap_err());
 
         Ok(())
     }
