@@ -3,7 +3,7 @@ use crossterm::{
     cursor::{DisableBlinking, EnableBlinking, Hide, MoveTo, RestorePosition, SavePosition, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
-    style::{Print, Stylize, Attribute, SetAttribute},
+    style::{Attribute, Print, SetAttribute, Stylize},
     terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, SetTitle},
 };
 use rand::Rng;
@@ -102,12 +102,12 @@ impl Tell for Fib {
                 for b in out.bytes() {
                     stdout_nonempty = true;
                     let b = b?;
-                    if b == '\n' as u8 {
+                    if b == b'\n' {
                         final_newline = true;
                         execute!(stdout, Print("\r\n"))?;
                     } else {
                         final_newline = false;
-                        stdout.write(&[b])?;
+                        stdout.write_all(&[b])?;
                     }
                 }
                 if stdout_nonempty && !final_newline {
