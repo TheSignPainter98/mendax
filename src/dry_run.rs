@@ -77,16 +77,10 @@ impl DryRun for Fib {
                 builder.add_line("SCREEN", depth);
                 tale.build_dry_run(builder, depth + 1);
             }
-            Self::Look { speed, fg, bg, title, cwd, user, host, final_prompt } => {
+            Self::Look { speed, title, cwd, user, host, final_prompt } => {
                 let mut to_change = vec![];
                 if let Some(speed) = speed {
                     to_change.push(("speed", speed.to_string()));
-                }
-                if let Some(fg) = fg {
-                    to_change.push(("fg", fg.to_string()));
-                }
-                if let Some(bg) = bg {
-                    to_change.push(("bg", bg.to_string()));
                 }
                 if let Some(title) = title {
                     to_change.push(("title", title.clone()));

@@ -1,11 +1,9 @@
-use lazy_static::lazy_static;
 use rhai::{
     Array, CustomType, Dynamic, Engine, EvalAltResult, FnPtr, Map, NativeCallContext, Scope,
     TypeBuilder,
 };
 use std::{
     cell::{Ref, RefCell, RefMut},
-    fmt::Display,
     fs,
     path::Path,
     rc::Rc,
@@ -272,8 +270,6 @@ impl LieBuilder {
             cwd: Some(dir.into()),
             host: None,
             user: None,
-            fg: None,
-            bg: None,
             speed: None,
             title: None,
             final_prompt: None,
@@ -327,8 +323,6 @@ impl LieBuilder {
 
     fn look(&mut self, options: Map) -> Result<(), Box<EvalAltResult>> {
         let mut speed = None;
-        let mut fg = None;
-        let mut bg = None;
         let mut title = None;
         let mut cwd = None;
         let mut host = None;
@@ -340,17 +334,9 @@ impl LieBuilder {
             let mut action_list: [(
                 &str,
                 &mut dyn FnMut(Dynamic) -> Result<(), Box<EvalAltResult>>,
-            ); 8] = [
+            ); 6] = [
                 ("speed", &mut |v: Dynamic| {
                     speed = Some(v.cast());
-                    Ok(())
-                }),
-                ("fg", &mut |v: Dynamic| {
-                    fg = Some(v.cast::<String>().as_str().try_into()?);
-                    Ok(())
-                }),
-                ("bg", &mut |v: Dynamic| {
-                    bg = Some(v.cast::<String>().as_str().try_into()?);
                     Ok(())
                 }),
                 ("title", &mut |v: Dynamic| {
@@ -406,8 +392,6 @@ impl LieBuilder {
 
         self.tale.push(Fib::Look {
             speed,
-            fg,
-            bg,
             title,
             cwd,
             host,
@@ -507,8 +491,6 @@ pub enum Fib {
     },
     Look {
         speed: Option<f64>,
-        fg: Option<Colour>,
-        bg: Option<Colour>,
         title: Option<String>,
         cwd: Option<String>,
         user: Option<String>,
@@ -516,52 +498,6 @@ pub enum Fib {
         final_prompt: Option<bool>,
     },
     Clear,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Colour {
-    Red,
-    Black,
-    White,
-}
-
-impl Display for Colour {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Red => "red",
-            Self::Black => "black",
-            Self::White => "white",
-        }
-        .fmt(f)
-    }
-}
-
-static COLOURS: phf::Map<&'static str, Colour> = phf::phf_map! {
-    "red"   => Colour::Red,
-    "black" => Colour::Black,
-    "white" => Colour::White,
-};
-
-lazy_static! {
-    static ref COLOUR_NAMES: Vec<&'static str> = {
-        let mut colour_names: Vec<_> = COLOURS.keys().copied().collect();
-        colour_names.sort();
-        colour_names
-    };
-}
-
-impl TryFrom<&str> for Colour {
-    type Error = Box<EvalAltResult>;
-
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        if let Some(c) = COLOURS.get(s) {
-            Ok(*c)
-        } else {
-            Err(Box::new(
-                MendaxError::UnknownColour(s.to_owned(), &COLOUR_NAMES).into(),
-            ))
-        }
-    }
 }
 
 #[cfg(test)]
@@ -668,8 +604,6 @@ mod test {
                 Fib::Look {
                     cwd: Some("/foo/bar".into()),
                     speed: None,
-                    fg: None,
-                    bg: None,
                     title: None,
                     user: None,
                     host: None,
@@ -803,8 +737,6 @@ mod test {
             test_script(false, r#"lie.look(#{});"#)?.tale().fibs(),
             &[Fib::Look {
                 speed: None,
-                fg: None,
-                bg: None,
                 title: None,
                 cwd: None,
                 host: None,
@@ -819,8 +751,6 @@ mod test {
                 r#"
                     lie.look(#{
                         speed: 100.0,
-                        fg: "black",
-                        bg: "red",
                         title: "on the origin of electric toasters",
                         cwd: "~/toast",
                         user: "methos",
@@ -833,8 +763,6 @@ mod test {
             .fibs(),
             &[Fib::Look {
                 speed: Some(100.0),
-                fg: Some(Colour::Black),
-                bg: Some(Colour::Red),
                 title: Some("on the origin of electric toasters".into()),
                 cwd: Some("~/toast".into()),
                 host: Some("gaia".into()),

@@ -8,8 +8,6 @@ lie.system("echo asdf", "ls");
 lie.run("baz", "r3");
 
 lie.look(#{
-	fg: "red",
-	bg: "black",
 	title: "hfjdkla",
 	cwd: "/",
 	user: "methos",
