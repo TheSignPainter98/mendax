@@ -501,7 +501,7 @@ pub enum Fib {
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
     use super::*;
     use crate::config;
     use regex::Regex;
@@ -512,7 +512,7 @@ mod test {
     };
     use tempfile::TempDir;
 
-    fn test_script(unrestricted: bool, script: &str) -> Result<Lie, Box<dyn Error>> {
+    pub fn test_script(unrestricted: bool, script: &str) -> Result<Lie, Box<dyn Error>> {
         let dir = tempfile::tempdir()?;
         let lie_path = &dir.path().join("test-lie.rhai");
 
