@@ -114,6 +114,7 @@ impl DryRun for Fib {
                     depth,
                 );
             }
+            Self::Tag { name } => builder.add_line(format!("@ {name}"), depth),
             Self::Clear => builder.add_line("CLEAR", depth),
         }
     }

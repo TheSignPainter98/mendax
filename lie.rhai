@@ -2,9 +2,11 @@ lie.run("echo foo", "foo");
 lie.run("bar", ["fds", "fdas"]);
 lie.run("baz", "r3");
 
+lie.tag("hello");
 lie.system("echo asdf");
 lie.system("echo asdf", "ls");
 
+lie.tag("world");
 lie.run("baz", "r3");
 
 lie.look(#{

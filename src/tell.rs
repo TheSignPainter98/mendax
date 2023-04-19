@@ -173,6 +173,7 @@ impl Tell for Fib {
 
                 Ok(())
             }
+            Self::Tag { .. } => Ok(()),
             Self::Clear => {
                 execute!(stdout, Clear(ClearType::All))?;
                 style.insert_newline = false;

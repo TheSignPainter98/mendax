@@ -4,6 +4,7 @@ use rhai::{
 };
 use std::{
     cell::{Ref, RefCell, RefMut},
+    collections::HashSet,
     fs,
     path::Path,
     rc::Rc,
@@ -208,6 +209,10 @@ impl SharedLieBuilder {
         lie.lie_mut(&ctx)?.look(options)
     }
 
+    fn tag(ctx: NativeCallContext, lie: &mut Self, name: &str) -> Result<(), Box<EvalAltResult>> {
+        lie.lie_mut(&ctx)?.tag(name)
+    }
+
     fn clear(ctx: NativeCallContext, lie: &mut Self) -> Result<(), Box<EvalAltResult>> {
         lie.lie_mut(&ctx)?.clear();
         Ok(())
@@ -217,6 +222,7 @@ impl SharedLieBuilder {
 #[derive(Clone, Debug)]
 pub struct LieBuilder {
     tale: Tale,
+    known_tags: HashSet<String>,
     allow_system: bool,
     root: bool,
 }
@@ -225,6 +231,7 @@ impl LieBuilder {
     fn new(allow_system: bool) -> Self {
         Self {
             tale: Tale::new(),
+            known_tags: HashSet::new(),
             allow_system,
             root: true,
         }
@@ -233,6 +240,7 @@ impl LieBuilder {
     fn child(&self) -> Self {
         Self {
             tale: Tale::new(),
+            known_tags: HashSet::new(),
             allow_system: self.allow_system,
             root: false,
         }
@@ -402,6 +410,20 @@ impl LieBuilder {
         Ok(())
     }
 
+    fn tag(&mut self, name: &str) -> Result<(), Box<EvalAltResult>> {
+        let name: String = name.into();
+
+        if !self.known_tags.insert(name.clone()) {
+            return Err(Box::new(EvalAltResult::ErrorSystem(
+                "cannot add tag".into(),
+                Box::new(MendaxError::DuplicateTag { name }),
+            )));
+        }
+
+        self.tale.push(Fib::Tag { name });
+        Ok(())
+    }
+
     fn clear(&mut self) {
         self.tale.push(Fib::Clear);
     }
@@ -421,6 +443,7 @@ impl CustomType for SharedLieBuilder {
             .with_fn("screen", Self::screen_simple)
             .with_fn("screen", Self::screen)
             .with_fn("look", Self::look)
+            .with_fn("tag", Self::tag)
             .with_fn("clear", Self::clear);
     }
 }
@@ -464,6 +487,9 @@ pub enum MendaxError {
 
     #[error("both {f1} and {f2} exist")]
     AmbiguousInput { f1: String, f2: String },
+
+    #[error("'{name}' defined multiple times")]
+    DuplicateTag { name: String },
 }
 
 impl From<MendaxError> for EvalAltResult {
@@ -496,6 +522,9 @@ pub enum Fib {
         user: Option<String>,
         host: Option<String>,
         final_prompt: Option<bool>,
+    },
+    Tag {
+        name: String,
     },
     Clear,
 }
