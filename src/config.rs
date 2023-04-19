@@ -210,7 +210,7 @@ impl SharedLieBuilder {
     }
 
     fn tag(ctx: NativeCallContext, lie: &mut Self, name: &str) -> Result<(), Box<EvalAltResult>> {
-        lie.lie_mut(&ctx)?.tag(name)
+        lie.lie_mut(&ctx)?.tag(ctx, name)
     }
 
     fn clear(ctx: NativeCallContext, lie: &mut Self) -> Result<(), Box<EvalAltResult>> {
@@ -222,7 +222,7 @@ impl SharedLieBuilder {
 #[derive(Clone, Debug)]
 pub struct LieBuilder {
     tale: Tale,
-    known_tags: HashSet<String>,
+    known_tags: Rc<RefCell<HashSet<String>>>,
     allow_system: bool,
     root: bool,
 }
@@ -231,7 +231,7 @@ impl LieBuilder {
     fn new(allow_system: bool) -> Self {
         Self {
             tale: Tale::new(),
-            known_tags: HashSet::new(),
+            known_tags: Rc::new(RefCell::new(HashSet::new())),
             allow_system,
             root: true,
         }
@@ -240,7 +240,7 @@ impl LieBuilder {
     fn child(&self) -> Self {
         Self {
             tale: Tale::new(),
-            known_tags: HashSet::new(),
+            known_tags: self.known_tags.clone(),
             allow_system: self.allow_system,
             root: false,
         }
@@ -410,14 +410,21 @@ impl LieBuilder {
         Ok(())
     }
 
-    fn tag(&mut self, name: &str) -> Result<(), Box<EvalAltResult>> {
+    fn tag(&mut self, ctx: NativeCallContext, name: &str) -> Result<(), Box<EvalAltResult>> {
         let name: String = name.into();
 
-        if !self.known_tags.insert(name.clone()) {
-            return Err(Box::new(EvalAltResult::ErrorSystem(
-                "cannot add tag".into(),
-                Box::new(MendaxError::DuplicateTag { name }),
-            )));
+        let new_tag = self
+            .known_tags
+            .try_borrow_mut()
+            .map_err(|e| {
+                Box::new(EvalAltResult::ErrorDataRace(
+                    format!("failed to read lie: {e}"),
+                    ctx.position(),
+                ))
+            })?
+            .insert(name.clone());
+        if !new_tag {
+            return Err(Box::new(MendaxError::DuplicateTag { name }.into()));
         }
 
         self.tale.push(Fib::Tag { name });
@@ -488,7 +495,7 @@ pub enum MendaxError {
     #[error("both {f1} and {f2} exist")]
     AmbiguousInput { f1: String, f2: String },
 
-    #[error("'{name}' defined multiple times")]
+    #[error("tag '{name}' defined multiple times")]
     DuplicateTag { name: String },
 }
 
@@ -756,6 +763,62 @@ mod test {
                 "mendax error: system calls are forbidden at this sandbox level",
             );
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn tag() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            test_script(false, r#"lie.tag("foo")"#)
+                .unwrap()
+                .tale()
+                .fibs(),
+            &[Fib::Tag { name: "foo".into() }],
+        );
+
+        assert_eq!(
+            test_script(
+                false,
+                r#"
+                    lie.tag("foo");
+                    lie.tag("foo");
+                "#,
+            )
+            .unwrap_err()
+            .to_string(),
+            "mendax error: tag 'foo' defined multiple times",
+        );
+
+        assert_eq!(
+            test_script(
+                false,
+                r#"
+                    lie.tag("foo");
+                    lie.screen(|lie| {
+                        lie.tag("foo");
+                    });
+                "#,
+            )
+            .unwrap_err()
+            .to_string(),
+            "mendax error: tag 'foo' defined multiple times",
+        );
+
+        assert_eq!(
+            test_script(
+                false,
+                r#"
+                    lie.screen(|lie| {
+                        lie.tag("foo");
+                    });
+                    lie.tag("foo");
+                "#,
+            )
+            .unwrap_err()
+            .to_string(),
+            "mendax error: tag 'foo' defined multiple times",
+        );
 
         Ok(())
     }
