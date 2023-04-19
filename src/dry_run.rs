@@ -13,7 +13,7 @@ impl DryRunBuilder {
         if !self.buf.is_empty() {
             self.buf.push("\n".into());
         }
-        self.buf.push("\t".repeat(indent));
+        self.buf.push("    ".repeat(indent));
         self.buf.push(line.into());
     }
 
@@ -53,7 +53,7 @@ impl DryRun for Fib {
                 builder.add_line(format!("$ {cmd}"), depth);
                 if !result.is_empty() {
                     for line in result {
-                        builder.add_line(format!("# {line}"), depth + 1);
+                        builder.add_line(format!("# {line}"), depth);
                     }
                 }
             }
@@ -64,14 +64,14 @@ impl DryRun for Fib {
                 if let Some(apparent_cmd) = apparent_cmd {
                     builder.add_line(format!("! {apparent_cmd} (secretly calls: {cmd})"), depth);
                 } else {
-                    builder.add_line(format!("$ {cmd}"), depth);
+                    builder.add_line(format!("! {cmd}"), depth);
                 }
             }
             Self::Screen { apparent_cmd, tale } => {
                 if let Some(apparent_cmd) = apparent_cmd {
                     builder.add_line(format!("$ {apparent_cmd}"), depth)
                 }
-                builder.add_line("SCREEN", depth);
+                builder.add_line("(screen)", depth);
                 tale.build_dry_run(builder, depth + 1);
             }
             Self::Look {
@@ -104,7 +104,7 @@ impl DryRun for Fib {
 
                 builder.add_line(
                     format!(
-                        "STYLE: {}",
+                        "(look: {})",
                         to_change
                             .iter()
                             .map(|(field, value)| format!("{field}={value}"))
@@ -114,12 +114,88 @@ impl DryRun for Fib {
                     depth,
                 );
             }
-            Self::Clear => builder.add_line("CLEAR", depth),
+            Self::Clear => builder.add_line("(clear)", depth),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    // simple...
+    use super::*;
+    use crate::config;
+    use indoc::indoc;
+
+    #[test]
+    fn all() {
+        assert_eq!(
+            config::test::test_script(
+                true,
+                r#"
+                    fn populate(lie) {
+                        lie.run("echo foo");
+                        lie.run("echo asdf", "asdf");
+                        lie.run("echo asdf", ["a", "s", "d", "f"]);
+                        lie.show("foo");
+                        lie.cd("/root");
+                        lie.system("ls");
+                        lie.system("ls", "dir");
+                    }
+                    populate(lie);
+                    lie.screen(|lie| {
+                        populate(lie);
+                    });
+                    lie.screen("man foo", |lie| {
+                        populate(lie);
+                    });
+                "#
+            )
+            .unwrap()
+            .dry_run(),
+            indoc! {r#"
+                $ echo foo
+                $ echo asdf
+                # asdf
+                $ echo asdf
+                # a
+                # s
+                # d
+                # f
+                # foo
+                $ cd /root
+                (look: cwd=/root)
+                ! ls
+                ! ls (secretly calls: dir)
+                (screen)
+                    $ echo foo
+                    $ echo asdf
+                    # asdf
+                    $ echo asdf
+                    # a
+                    # s
+                    # d
+                    # f
+                    # foo
+                    $ cd /root
+                    (look: cwd=/root)
+                    ! ls
+                    ! ls (secretly calls: dir)
+                $ man foo
+                (screen)
+                    $ echo foo
+                    $ echo asdf
+                    # asdf
+                    $ echo asdf
+                    # a
+                    # s
+                    # d
+                    # f
+                    # foo
+                    $ cd /root
+                    (look: cwd=/root)
+                    ! ls
+                    ! ls (secretly calls: dir)
+            "#}
+            .trim(),
+        );
+    }
 }

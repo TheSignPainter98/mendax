@@ -4,6 +4,10 @@ mod dry_run;
 mod init;
 mod tell;
 
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
+
 use crate::args::Args;
 use crate::tell::Tell;
 use clap::Parser;
