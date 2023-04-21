@@ -1,4 +1,7 @@
-use crate::config::{Fib, Lie, MendaxError, Tale};
+use crate::{
+    config::{Fib, Lie, Tale},
+    MendaxError,
+};
 use crossterm::{
     cursor::{DisableBlinking, EnableBlinking, Hide, MoveTo, RestorePosition, SavePosition, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},

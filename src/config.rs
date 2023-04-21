@@ -1,3 +1,4 @@
+use crate::MendaxError;
 use rhai::{
     Array, CustomType, Dynamic, Engine, EvalAltResult, FnPtr, Map, NativeCallContext, Scope,
     TypeBuilder,
@@ -9,7 +10,6 @@ use std::{
     path::Path,
     rc::Rc,
 };
-use thiserror::Error;
 
 pub fn read<P: AsRef<Path>>(fname: P, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
     let fname = fname.as_ref();
@@ -30,23 +30,22 @@ fn get_src(fname: &Path) -> Result<String, Box<EvalAltResult>> {
     let exact = fs::read_to_string(fname);
     let inferred = fs::read_to_string((fname.to_string_lossy() + ".rhai").to_string());
     if exact.is_ok() && inferred.is_ok() {
-        return Err(Box::new(EvalAltResult::ErrorSystem(
-            "failed to load spec".into(),
-            Box::new(MendaxError::AmbiguousInput {
+        return Err(Box::new(
+            MendaxError::AmbiguousSource {
                 f1: fname.to_string_lossy().to_string(),
                 f2: fname.to_string_lossy().to_string() + ".rhai",
-            }),
-        )));
+            }
+            .into(),
+        ));
     }
     exact.or(inferred).map_err(|e| {
-        Box::new(EvalAltResult::ErrorSystem(
-            format!(
-                "could not read file '{}' or '{}.rhai'",
-                fname.display(),
-                fname.display()
-            ),
-            Box::new(e),
-        ))
+        Box::new(
+            MendaxError::NoSuchSource {
+                stem: fname.to_owned(),
+                error: Box::new(e),
+            }
+            .into(),
+        )
     })
 }
 
@@ -102,7 +101,12 @@ impl SharedLieBuilder {
         Ok(Lie::new(
             self.0
                 .try_borrow()
-                .map_err(|e| EvalAltResult::ErrorSystem("lie in use".into(), Box::new(e)))?
+                .map_err(|e| {
+                    Box::new(EvalAltResult::from(MendaxError::LieUnreadable {
+                        error: Box::new(e),
+                        at: None,
+                    }))
+                })?
                 .tale
                 .clone(),
         ))
@@ -110,10 +114,10 @@ impl SharedLieBuilder {
 
     fn lie(&self, ctx: &NativeCallContext) -> Result<Ref<'_, LieBuilder>, Box<EvalAltResult>> {
         self.0.try_borrow().map_err(|e| {
-            Box::new(EvalAltResult::ErrorDataRace(
-                format!("failed to read lie: {e}"),
-                ctx.position(),
-            ))
+            Box::new(EvalAltResult::from(MendaxError::LieUnreadable {
+                error: Box::new(e),
+                at: Some(ctx.position()),
+            }))
         })
     }
 
@@ -122,10 +126,10 @@ impl SharedLieBuilder {
         ctx: &NativeCallContext,
     ) -> Result<RefMut<'_, LieBuilder>, Box<EvalAltResult>> {
         self.0.try_borrow_mut().map_err(|e| {
-            Box::new(EvalAltResult::ErrorDataRace(
-                format!("failed to read lie: {e}"),
-                ctx.position(),
-            ))
+            Box::new(EvalAltResult::from(MendaxError::LieUnwritable {
+                error: Box::new(e),
+                at: Some(ctx.position()),
+            }))
         })
     }
 
@@ -472,39 +476,6 @@ impl Tale {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum MendaxError {
-    #[error("unknown field {field:?}, expected one of: {}", .expected.join(", "))]
-    UnknownField {
-        field: String,
-        expected: Vec<&'static str>,
-    },
-
-    #[error("system calls are forbidden at this sandbox level")]
-    SystemForbidden,
-
-    #[error("unknown colour {0:?}, expected one of: {}", .1.join(", "))]
-    UnknownColour(String, &'static [&'static str]),
-
-    #[error("keyboard interrupt")]
-    KeyboardInterrupt,
-
-    #[error("cannot nest screens")]
-    NestedScreens,
-
-    #[error("both {f1} and {f2} exist")]
-    AmbiguousInput { f1: String, f2: String },
-
-    #[error("tag '{name}' defined multiple times")]
-    DuplicateTag { name: String },
-}
-
-impl From<MendaxError> for EvalAltResult {
-    fn from(value: MendaxError) -> Self {
-        EvalAltResult::ErrorSystem("mendax error".into(), Box::new(value))
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum Fib {
     Run {
@@ -537,7 +508,7 @@ pub enum Fib {
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
     use super::*;
     use crate::config;
     use regex::Regex;
@@ -548,7 +519,7 @@ mod test {
     };
     use tempfile::TempDir;
 
-    fn test_script(unrestricted: bool, script: &str) -> Result<Lie, Box<dyn Error>> {
+    pub fn test_script(unrestricted: bool, script: &str) -> Result<Lie, Box<dyn Error>> {
         let dir = tempfile::tempdir()?;
         let lie_path = &dir.path().join("test-lie.rhai");
 
@@ -889,7 +860,7 @@ mod test {
             .unwrap_err()
             .to_string();
 
-        let re = Regex::new("^failed to load spec: both .* and .* exist$").unwrap();
+        let re = Regex::new("^mendax error: ambiguous source: both .* and .* exist$").unwrap();
         assert!(re.is_match(&err_string), "unexpected error: {err_string}");
 
         Ok(())
