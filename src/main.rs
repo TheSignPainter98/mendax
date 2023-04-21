@@ -1,8 +1,11 @@
 mod args;
 mod config;
 mod dry_run;
+mod error;
 mod init;
 mod tell;
+
+pub use error::MendaxError;
 
 #[cfg(test)]
 #[macro_use]
