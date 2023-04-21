@@ -421,10 +421,10 @@ impl LieBuilder {
             .known_tags
             .try_borrow_mut()
             .map_err(|e| {
-                Box::new(EvalAltResult::ErrorDataRace(
-                    format!("failed to read lie: {e}"),
-                    ctx.position(),
-                ))
+                EvalAltResult::from(MendaxError::LieUnwritable {
+                    error: Box::new(e),
+                    at: Some(ctx.position()),
+                })
             })?
             .insert(name.clone());
         if !new_tag {
