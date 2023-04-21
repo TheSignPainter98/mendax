@@ -1,4 +1,8 @@
-use crate::MendaxError;
+use crate::{
+    lie::Lie,
+    tale::{Fib, Tale},
+    MendaxError,
+};
 use rhai::{
     Array, CustomType, Dynamic, Engine, EvalAltResult, FnPtr, Map, NativeCallContext, Scope,
     TypeBuilder,
@@ -68,21 +72,6 @@ fn engine(unrestricted: bool) -> Engine {
     engine
 }
 
-#[derive(Debug)]
-pub struct Lie {
-    tale: Tale,
-}
-
-impl Lie {
-    fn new(tale: Tale) -> Self {
-        Self { tale }
-    }
-
-    pub fn tale(&self) -> &Tale {
-        &self.tale
-    }
-}
-
 #[derive(Clone, Debug)]
 struct SharedLieBuilder(Rc<RefCell<LieBuilder>>);
 
@@ -98,18 +87,17 @@ impl SharedLieBuilder {
     }
 
     fn build(self) -> Result<Lie, Box<EvalAltResult>> {
-        Ok(Lie::new(
-            self.0
-                .try_borrow()
-                .map_err(|e| {
-                    Box::new(EvalAltResult::from(MendaxError::LieUnreadable {
-                        error: Box::new(e),
-                        at: None,
-                    }))
-                })?
-                .tale
-                .clone(),
-        ))
+        Ok(self
+            .0
+            .try_borrow()
+            .map_err(|e| {
+                Box::new(EvalAltResult::from(MendaxError::LieUnreadable {
+                    error: Box::new(e),
+                    at: None,
+                }))
+            })?
+            .clone()
+            .build())
     }
 
     fn lie(&self, ctx: &NativeCallContext) -> Result<Ref<'_, LieBuilder>, Box<EvalAltResult>> {
@@ -234,16 +222,20 @@ pub struct LieBuilder {
 impl LieBuilder {
     fn new(allow_system: bool) -> Self {
         Self {
-            tale: Tale::new(),
+            tale: Tale::default(),
             known_tags: Rc::new(RefCell::new(HashSet::new())),
             allow_system,
             root: true,
         }
     }
 
+    fn build(self) -> Lie {
+        Lie::new(self.tale)
+    }
+
     fn child(&self) -> Self {
         Self {
-            tale: Tale::new(),
+            tale: Tale::default(),
             known_tags: self.known_tags.clone(),
             allow_system: self.allow_system,
             root: false,
@@ -459,54 +451,6 @@ impl CustomType for SharedLieBuilder {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Tale(Vec<Fib>);
-
-impl Tale {
-    fn new() -> Self {
-        Self(vec![])
-    }
-
-    fn push(&mut self, fib: Fib) {
-        self.0.push(fib)
-    }
-
-    pub fn fibs(&self) -> &Vec<Fib> {
-        &self.0
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Fib {
-    Run {
-        cmd: String,
-        result: Vec<String>,
-    },
-    Show {
-        text: String,
-    },
-    System {
-        apparent_cmd: Option<String>,
-        cmd: String,
-    },
-    Screen {
-        apparent_cmd: Option<String>,
-        tale: Tale,
-    },
-    Look {
-        speed: Option<f64>,
-        title: Option<String>,
-        cwd: Option<String>,
-        user: Option<String>,
-        host: Option<String>,
-        final_prompt: Option<bool>,
-    },
-    Tag {
-        name: String,
-    },
-    Clear,
-}
-
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
@@ -677,7 +621,7 @@ pub(crate) mod test {
                 .fibs(),
                 &[Fib::Screen {
                     apparent_cmd: None,
-                    tale: Tale(vec![Fib::System {
+                    tale: Tale::new(vec![Fib::System {
                         cmd: "sudo ls /root".into(),
                         apparent_cmd: Some("ls".into()),
                     }])
@@ -713,7 +657,7 @@ pub(crate) mod test {
                 .fibs(),
                 &[Fib::Screen {
                     apparent_cmd: Some("man foo".into()),
-                    tale: Tale(vec![Fib::System {
+                    tale: Tale::new(vec![Fib::System {
                         cmd: "sudo ls /root".into(),
                         apparent_cmd: Some("ls".into()),
                     }])
