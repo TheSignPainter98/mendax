@@ -330,14 +330,13 @@ impl<'lie> Style<'lie> {
     }
 }
 
-impl<'lie> Default for Style<'lie> {
+impl Default for Style<'_> {
     fn default() -> Self {
         Self {
-            insert_newline: false,
             speed: 0.040,
-            cwd: "~".into(),
-            host: "ubuntu".into(),
-            user: "ubuntu".into(),
+            cwd: "~",
+            host: "ubuntu",
+            user: "ubuntu",
             final_prompt: true,
             final_newline: true,
         }
