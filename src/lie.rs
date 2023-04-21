@@ -11,7 +11,7 @@ use rand::Rng;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Display;
-use std::io::{Read, StdoutLock, Write};
+use std::io::{self, Read, StdoutLock, Write};
 use std::{thread, time::Duration};
 use subprocess::{Exec, Redirection};
 
@@ -56,7 +56,10 @@ impl Lie {
                     steps.push(Step::HideCursor);
                     steps.push(Step::System(cmd));
                 }
-                Fib::Screen { apparent_cmd, tale: child } => {
+                Fib::Screen {
+                    apparent_cmd,
+                    tale: child,
+                } => {
                     if let Some(apparent_cmd) = apparent_cmd {
                         steps.push(Step::Ps1);
                         steps.push(Step::ShowCursor);
@@ -122,7 +125,7 @@ impl Lie {
         let mut pc = 0;
         while pc < self.steps.len() {
             match &self.steps[pc] {
-                Step::Pause => match self.pause()? {
+                Step::Pause => match self.pause(stdout)? {
                     UnpauseAction::Goto(jmp) => {
                         pc = jmp;
                         continue;
@@ -174,13 +177,11 @@ impl Lie {
                         )?;
                     }
                     execute!(stdout, SetAttribute(Attribute::Reset))?;
-                    // style.insert_newline = false;
                 }
-                Step::Clear => {
-                    execute!(stdout, Clear(ClearType::All))?;
-                    // style.insert_newline = false;
+                Step::Clear => execute!(stdout, Clear(ClearType::All))?,
+                Step::ScreenOpen => {
+                    execute!(stdout, SavePosition, EnterAlternateScreen, MoveTo(0, 0))?
                 }
-                Step::ScreenOpen => execute!(stdout, SavePosition, EnterAlternateScreen, MoveTo(0, 0))?,
                 Step::ScreenClose => execute!(stdout, LeaveAlternateScreen, RestorePosition)?,
 
                 Step::SetSpeed(speed) => style.speed = *speed,
@@ -194,7 +195,7 @@ impl Lie {
         }
         if style.final_prompt {
             execute!(stdout, Print(style.ps1()))?;
-            self.pause()?;
+            self.pause(stdout)?;
         }
 
         if style.final_newline {
@@ -207,7 +208,7 @@ impl Lie {
         Ok(())
     }
 
-    fn pause(&self) -> Result<UnpauseAction, Box<dyn Error>> {
+    fn pause(&self, stdout: &mut StdoutLock) -> Result<UnpauseAction, Box<dyn Error>> {
         loop {
             match event::read()? {
                 Event::Key(KeyEvent {
@@ -220,12 +221,37 @@ impl Lie {
                     modifiers: KeyModifiers::CONTROL,
                     ..
                 }) => {
-                    todo!("re-ask for the tag");
-                    // let tag = "foo".into();
-                    // let pc;
-                    // while {
-                    // } {}
-                    // return Ok(UnpauseAction::Goto(pc))
+                    terminal::disable_raw_mode()?;
+                    let mut incorrect = false;
+                    let mut tag = String::new();
+                    let pc = loop {
+                        if !incorrect {
+                            write!(stdout, "\nEnter tag: ")?;
+                        } else {
+                            write!(stdout, "Tag incorrect; enter tag: ")?;
+                        }
+                        stdout.flush()?;
+
+                        tag.clear();
+                        io::stdin().read_line(&mut tag)?;
+                        let tag = tag.trim();
+                        println!("!{tag}");
+
+                        if tag == "?" {
+                            let mut known_tags = self.tags.keys().map(|k| k.as_str()).collect::<Vec<_>>();
+                            known_tags.sort();
+
+                            println!("Available tags: {}", known_tags.join(", "));
+                            continue;
+                        }
+                        if let Some(pc) = self.tags.get(tag) {
+                            break *pc;
+                        }
+                        incorrect = true;
+                    };
+                    print!("jumped to tag {tag}");
+                    terminal::enable_raw_mode()?;
+                    return Ok(UnpauseAction::Goto(pc));
                 }
                 Event::Key(KeyEvent { .. }) => return Ok(UnpauseAction::None),
                 _ => {}
