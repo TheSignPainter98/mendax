@@ -288,7 +288,6 @@ enum UnpauseAction {
 }
 
 pub struct Style<'lie> {
-    insert_newline: bool,
     speed: f64,
     cwd: &'lie str,
     host: &'lie str,

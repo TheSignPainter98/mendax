@@ -20,7 +20,7 @@ pub enum MendaxError {
     #[error("unknown colour {0:?}, expected one of: {}", .1.join(", "))]
     UnknownColour(String, &'static [&'static str]),
 
-    #[error("keyboard interrupt")]
+    #[error("^C")]
     KeyboardInterrupt,
 
     #[error("cannot nest screens")]
