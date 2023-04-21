@@ -30,7 +30,7 @@ pub enum MendaxError {
     AmbiguousSource { f1: String, f2: String },
 
     #[error("could not read file '{stem}' or '{stem}.rhai'", stem=stem.display())]
-    NoSuchInput {
+    NoSuchSource {
         stem: PathBuf,
         error: Box<dyn Error>,
     },

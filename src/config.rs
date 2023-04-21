@@ -39,7 +39,7 @@ fn get_src(fname: &Path) -> Result<String, Box<EvalAltResult>> {
     }
     exact.or(inferred).map_err(|e| {
         Box::new(
-            MendaxError::NoSuchInput {
+            MendaxError::NoSuchSource {
                 stem: fname.to_owned(),
                 error: Box::new(e),
             }
