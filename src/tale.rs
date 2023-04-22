@@ -1,5 +1,5 @@
-use crate::error::MendaxError;
 use crate::config::Lie;
+use crate::error::MendaxError;
 use crate::fib::Fib;
 use crossterm::{
     cursor::{DisableBlinking, EnableBlinking, Hide, MoveTo, RestorePosition, SavePosition, Show},
@@ -136,7 +136,7 @@ impl Tale {
                     UnpauseAction::Exit => {
                         style.final_prompt = false;
                         break;
-                    },
+                    }
                     UnpauseAction::None => {}
                 },
                 Step::ShowCursor => {
@@ -215,6 +215,7 @@ impl Tale {
     }
 
     fn pause(&self, stdout: &mut StdoutLock) -> Result<UnpauseAction, Box<dyn Error>> {
+        let mut printed = false;
         loop {
             match event::read()? {
                 Event::Key(KeyEvent {
@@ -226,9 +227,15 @@ impl Tale {
                     code: KeyCode::Char('h') | KeyCode::Char('?'),
                     ..
                 }) => {
-                    write!(stdout, "\r\n(help) press '/' to jump to tag, '!' to exit, 'h' for this help")?;
-                    stdout.flush()?;
-                },
+                    if !printed {
+                        write!(stdout, "\r\n")?;
+                        printed = true;
+                    }
+                    write!(
+                        stdout,
+                        "(help) press '/' to jump to tag, '!' to exit, 'h' for this help\r\n"
+                    )?;
+                }
                 Event::Key(KeyEvent {
                     code: KeyCode::Char('!'),
                     ..
@@ -241,10 +248,14 @@ impl Tale {
                     let mut incorrect = false;
                     let mut tag = String::new();
                     let pc = loop {
+                        if !printed {
+                            write!(stdout, "\n")?;
+                            printed = true;
+                        }
                         if !incorrect {
-                            write!(stdout, "\nenter tag: ")?;
+                            write!(stdout, "enter tag: ")?;
                         } else {
-                            write!(stdout, "tag incorrect; enter tag: ")?;
+                            write!(stdout, "tag incorrect; enter tag or '?' to list available: ")?;
                         }
                         stdout.flush()?;
 
@@ -253,10 +264,11 @@ impl Tale {
                         let tag = tag.trim();
 
                         if tag == "?" {
-                            let mut known_tags = self.tags.keys().map(|k| k.as_str()).collect::<Vec<_>>();
+                            let mut known_tags =
+                                self.tags.keys().map(|k| k.as_str()).collect::<Vec<_>>();
                             known_tags.sort();
 
-                            print!("available tags: {}", known_tags.join(", "));
+                            println!("{}", known_tags.join(", "));
                             continue;
                         }
                         if let Some(pc) = self.tags.get(tag) {
