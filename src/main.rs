@@ -2,10 +2,9 @@ mod args;
 mod config;
 // mod dry_run;
 mod error;
+mod fib;
 mod init;
-mod lie;
 mod tale;
-mod tell;
 
 pub use error::MendaxError;
 
@@ -19,6 +18,7 @@ use clap::Parser;
 use std::io::stdout;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use crate::tale::Tale;
 
 fn main() -> ExitCode {
     let args = Args::parse();
@@ -36,12 +36,14 @@ fn main() -> ExitCode {
         }
     };
 
-    // if args.dry_run() {
-    //     println!("{}", lie.dry_run());
-    //     return ExitCode::SUCCESS;
-    // }
+    if args.dry_run() {
+        todo!();
+        // println!("{}", lie.dry_run());
+        // return ExitCode::SUCCESS;
+    }
 
-    match lie.tell(&mut stdout().lock()) {
+    let tale = Tale::from(lie);
+    match tale.tell(&mut stdout().lock()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{e}");
