@@ -15,10 +15,10 @@ extern crate pretty_assertions;
 use crate::args::Args;
 use clap::Parser;
 // use dry_run::DryRun;
+use crate::tale::Tale;
 use std::io::stdout;
 use std::path::PathBuf;
 use std::process::ExitCode;
-use crate::tale::Tale;
 
 fn main() -> ExitCode {
     let args = Args::parse();

@@ -249,13 +249,16 @@ impl Tale {
                     let mut tag = String::new();
                     let pc = loop {
                         if !printed {
-                            write!(stdout, "\n")?;
+                            writeln!(stdout)?;
                             printed = true;
                         }
                         if !incorrect {
                             write!(stdout, "enter tag: ")?;
                         } else {
-                            write!(stdout, "tag incorrect; enter tag or '?' to list available: ")?;
+                            write!(
+                                stdout,
+                                "tag incorrect; enter tag or '?' to list available: "
+                            )?;
                         }
                         stdout.flush()?;
 
