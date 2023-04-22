@@ -133,6 +133,10 @@ impl Tale {
                         pc = jmp;
                         continue;
                     }
+                    UnpauseAction::Exit => {
+                        style.final_prompt = false;
+                        break;
+                    },
                     UnpauseAction::None => {}
                 },
                 Step::ShowCursor => {
@@ -219,8 +223,18 @@ impl Tale {
                     ..
                 }) => return Err(Box::new(MendaxError::KeyboardInterrupt)),
                 Event::Key(KeyEvent {
-                    code: KeyCode::Char('t'),
-                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('h') | KeyCode::Char('?'),
+                    ..
+                }) => {
+                    write!(stdout, "\r\n(help) press '/' to jump to tag, '!' to exit, 'h' for this help")?;
+                    stdout.flush()?;
+                },
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('!'),
+                    ..
+                }) => return Ok(UnpauseAction::Exit),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('/'),
                     ..
                 }) => {
                     terminal::disable_raw_mode()?;
@@ -228,9 +242,9 @@ impl Tale {
                     let mut tag = String::new();
                     let pc = loop {
                         if !incorrect {
-                            write!(stdout, "\nEnter tag: ")?;
+                            write!(stdout, "\nenter tag: ")?;
                         } else {
-                            write!(stdout, "Tag incorrect; enter tag: ")?;
+                            write!(stdout, "tag incorrect; enter tag: ")?;
                         }
                         stdout.flush()?;
 
@@ -242,7 +256,7 @@ impl Tale {
                             let mut known_tags = self.tags.keys().map(|k| k.as_str()).collect::<Vec<_>>();
                             known_tags.sort();
 
-                            println!("Available tags: {}", known_tags.join(", "));
+                            print!("available tags: {}", known_tags.join(", "));
                             continue;
                         }
                         if let Some(pc) = self.tags.get(tag) {
@@ -250,7 +264,6 @@ impl Tale {
                         }
                         incorrect = true;
                     };
-                    print!("jumped to tag {tag}");
                     terminal::enable_raw_mode()?;
                     return Ok(UnpauseAction::Goto(pc));
                 }
@@ -285,6 +298,7 @@ enum Step {
 
 enum UnpauseAction {
     Goto(usize),
+    Exit,
     None,
 }
 
