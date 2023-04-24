@@ -1,5 +1,5 @@
 mod args;
-mod config;
+mod lie;
 // mod dry_run;
 mod error;
 mod fib;
@@ -28,7 +28,7 @@ fn main() -> ExitCode {
         return init::init(&fname);
     }
 
-    let lie = match config::read(fname, args.unrestricted()) {
+    let lie = match lie::read(fname, args.unrestricted()) {
         Ok(t) => t,
         Err(e) => {
             eprintln!("{}", e);
@@ -42,8 +42,7 @@ fn main() -> ExitCode {
         // return ExitCode::SUCCESS;
     }
 
-    let tale = Tale::from(lie);
-    match tale.tell(&mut stdout().lock()) {
+    match Tale::from(lie).tell(&mut stdout().lock()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{e}");

@@ -457,7 +457,6 @@ impl Lie {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
-    use crate::config;
     use regex::Regex;
     use std::{
         error::Error,
@@ -482,8 +481,8 @@ pub(crate) mod test {
         let mut file = File::create(&path)?;
         file.write_all(r#"lie.show("hello");"#.as_bytes())?;
 
-        assert!(config::read(&path, false).is_ok());
-        assert!(config::read(path.with_extension(""), false).is_ok());
+        assert!(read(&path, false).is_ok());
+        assert!(read(path.with_extension(""), false).is_ok());
 
         Ok(())
     }

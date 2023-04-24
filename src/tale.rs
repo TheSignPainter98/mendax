@@ -1,4 +1,4 @@
-use crate::config::Lie;
+use crate::lie::Lie;
 use crate::error::MendaxError;
 use crate::fib::Fib;
 use crossterm::{
