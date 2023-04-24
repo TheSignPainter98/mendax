@@ -403,7 +403,11 @@ impl Lie {
     }
 
     fn tag(&mut self, ctx: NativeCallContext, name: &str) -> Result<(), Box<EvalAltResult>> {
-        let name: String = name.into();
+        let name = name.trim().to_string();
+
+        if name == "?" || name == "!" {
+            return Err(Box::new(MendaxError::InvalidTagName { name }.into()));
+        }
 
         let new_tag = self
             .known_tags
@@ -730,6 +734,30 @@ pub(crate) mod test {
             .unwrap_err()
             .to_string(),
             "mendax error: tag 'foo' defined multiple times",
+        );
+
+        assert_eq!(
+            test_script(
+                false,
+                r#"
+                    lie.tag("!")
+                "#,
+            )
+            .unwrap_err()
+            .to_string(),
+            "mendax error: tag '!' is reserved",
+        );
+
+        assert_eq!(
+            test_script(
+                false,
+                r#"
+                    lie.tag("?")
+                "#,
+            )
+            .unwrap_err()
+            .to_string(),
+            "mendax error: tag '?' is reserved",
         );
 
         Ok(())

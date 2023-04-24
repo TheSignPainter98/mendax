@@ -49,6 +49,9 @@ pub enum MendaxError {
 
     #[error("tag '{name}' defined multiple times")]
     DuplicateTag { name: String },
+
+    #[error("tag '{name}' is reserved")]
+    InvalidTagName { name: String },
 }
 
 impl From<MendaxError> for EvalAltResult {
