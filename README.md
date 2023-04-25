@@ -1,6 +1,6 @@
 # Mendax
 
-A CLI spoofer—like [asciinema][asciinema] but in real-time.
+A simple terminal spoofer—like [asciinema][asciinema] but usable in real-time.
 Specify inputs to fake and outputs to fake, all of which may be checked before running.
 
 ## Table of Contents
