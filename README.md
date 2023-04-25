@@ -28,13 +28,13 @@ Well no more.
 
 Mendax offers:
 
-- **Sandboxed spoofing**---unless you specifically allow it, mendax runs in a complete sandbox, unable to read or alter the host system’s state. No more surprises!
-- **Dry running**---demos can be checked ahead of time. Higher quality in less development time.
-- **Time travel**---tag important moments in the demo so you can jump between them at showtime. Adapt to your audience.
+- **Sandboxed spoofing**—unless you specifically allow it, mendax runs in a complete sandbox, unable to read or alter the host system’s state. No more surprises!
+- **Dry running**—demos can be checked ahead of time. Higher quality in less development time.
+- **Time travel**—tag important moments in the demo so you can jump between them at showtime. Adapt to your audience.
 
 Oh and one more thing, do you creating [asciinema][asciinema] recordings and getting annoyed at your typing speed and spelling mistakes?
 Well I do, and quite a bit; what should be a five minute job can stretch for far longer as I stress about the tiniest details.
-All this can go away just by running---
+All this can go away just by running—
 ```bash
 asciinema rec -c mendax
 ```
