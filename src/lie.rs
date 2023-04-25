@@ -195,7 +195,7 @@ impl SharedLie {
         lie: &mut Self,
         options: Map,
     ) -> Result<(), Box<EvalAltResult>> {
-        lie.lie_mut(&ctx)?.look(options)
+        lie.lie_mut(&ctx)?.look(ctx, options)
     }
 
     fn tag(ctx: NativeCallContext, lie: &mut Self, name: &str) -> Result<(), Box<EvalAltResult>> {
@@ -330,7 +330,7 @@ impl Lie {
         Ok(())
     }
 
-    fn look(&mut self, options: Map) -> Result<(), Box<EvalAltResult>> {
+    fn look(&mut self, ctx: NativeCallContext, options: Map) -> Result<(), Box<EvalAltResult>> {
         let mut speed = None;
         let mut title = None;
         let mut cwd = None;
@@ -342,30 +342,30 @@ impl Lie {
             #[allow(clippy::type_complexity)]
             let mut action_list: [(
                 &str,
-                &mut dyn FnMut(Dynamic) -> Result<(), Box<EvalAltResult>>,
+                &mut dyn FnMut(Dynamic) -> Result<(), &'static str>,
             ); 6] = [
                 ("speed", &mut |v: Dynamic| {
-                    speed = Some(v.cast());
+                    speed = Some(v.try_cast().ok_or("f64")?);
                     Ok(())
                 }),
                 ("title", &mut |v: Dynamic| {
-                    title = Some(v.cast());
+                    title = Some(v.try_cast().ok_or("string")?);
                     Ok(())
                 }),
                 ("cwd", &mut |v: Dynamic| {
-                    cwd = Some(v.cast());
+                    cwd = Some(v.try_cast().ok_or("string")?);
                     Ok(())
                 }),
                 ("host", &mut |v: Dynamic| {
-                    host = Some(v.cast());
+                    host = Some(v.try_cast().ok_or("string")?);
                     Ok(())
                 }),
                 ("user", &mut |v: Dynamic| {
-                    user = Some(v.cast());
+                    user = Some(v.try_cast().ok_or("string")?);
                     Ok(())
                 }),
                 ("final_prompt", &mut |v: Dynamic| {
-                    final_prompt = Some(v.cast());
+                    final_prompt = Some(v.try_cast().ok_or("string")?);
                     Ok(())
                 }),
             ];
@@ -377,7 +377,14 @@ impl Lie {
                     if k != *name {
                         continue;
                     }
-                    action(v.clone())?;
+                    let type_name = v.type_name();
+                    action(v.clone()).map_err(|e| {
+                        EvalAltResult::ErrorMismatchDataType(
+                            e.into(),
+                            type_name.into(),
+                            ctx.position(),
+                        )
+                    })?;
                     found = true;
                     break 'actions;
                 }
@@ -821,6 +828,13 @@ pub(crate) mod test {
                 user: Some("methos".into()),
                 final_prompt: Some(false),
             }]
+        );
+
+        assert_eq!(
+            test_script(false, r#"lie.look(#{speed: "speedy"});"#)
+                .unwrap_err()
+                .to_string(),
+            "Data type incorrect: string (expecting f64) (line 1, position 5)"
         );
 
         Ok(())
