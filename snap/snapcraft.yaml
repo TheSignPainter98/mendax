@@ -5,6 +5,7 @@ summary: A CLI spoofer--like asciinema, but in real-time!
 description: |
   With Mendax, you can specify a sequence of CLI inputs and outputs, shown as
   you press ENTER.
+license: GPL-3.0
 
 grade: stable
 confinement: strict
