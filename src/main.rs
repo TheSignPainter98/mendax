@@ -1,9 +1,9 @@
 mod args;
-mod lie;
 mod dry_run;
 mod error;
 mod fib;
 mod init;
+mod lie;
 mod tale;
 
 pub use error::MendaxError;
@@ -13,9 +13,9 @@ pub use error::MendaxError;
 extern crate pretty_assertions;
 
 use crate::args::Args;
+use crate::tale::Tale;
 use clap::Parser;
 use dry_run::DryRun;
-use crate::tale::Tale;
 use std::io::stdout;
 use std::path::PathBuf;
 use std::process::ExitCode;

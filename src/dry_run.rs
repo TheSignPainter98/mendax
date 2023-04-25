@@ -1,7 +1,4 @@
-use crate::{
-    lie::Lie,
-    fib::Fib,
-};
+use crate::{fib::Fib, lie::Lie};
 
 pub struct DryRunBuilder {
     buf: Vec<String>,
@@ -43,7 +40,8 @@ impl DryRun for Lie {
 
 impl DryRun for &[Fib] {
     fn build_dry_run(&self, builder: &mut DryRunBuilder, depth: usize) {
-        self.iter().for_each(|fib| fib.build_dry_run(builder, depth));
+        self.iter()
+            .for_each(|fib| fib.build_dry_run(builder, depth));
     }
 }
 
@@ -116,7 +114,13 @@ impl DryRun for Fib {
                 );
             }
             Self::Tag { name } => builder.add_line(format!("(tag) {name}"), depth),
-            Self::Sleep { duration } => builder.add_line(format!("(sleep) {}", pretty_duration::pretty_duration(duration, None)), depth),
+            Self::Sleep { duration } => builder.add_line(
+                format!(
+                    "(sleep) {}",
+                    pretty_duration::pretty_duration(duration, None)
+                ),
+                depth,
+            ),
             Self::Stop => builder.add_line("(STOP)", depth),
             Self::Enter { msg } => builder.add_line(format!("(enter) {msg}"), depth),
             Self::Clear => builder.add_line("(clear)", depth),
