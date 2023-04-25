@@ -215,6 +215,11 @@ impl SharedLie {
         Ok(())
     }
 
+    fn enter(ctx: NativeCallContext, lie: &mut Self, msg: &str) -> Result<(), Box<EvalAltResult>> {
+        lie.lie_mut(&ctx)?.enter(msg);
+        Ok(())
+    }
+
     fn clear(ctx: NativeCallContext, lie: &mut Self) -> Result<(), Box<EvalAltResult>> {
         lie.lie_mut(&ctx)?.clear();
         Ok(())
@@ -463,6 +468,10 @@ impl Lie {
         self.fibs.push(Fib::Stop);
     }
 
+    fn enter(&mut self, msg: &str) {
+        self.fibs.push(Fib::Enter { msg: msg.into() });
+    }
+
     fn clear(&mut self) {
         self.fibs.push(Fib::Clear);
     }
@@ -485,6 +494,7 @@ impl CustomType for SharedLie {
             .with_fn("tag", Self::tag)
             .with_fn("sleep", Self::sleep)
             .with_fn("stop", Self::stop)
+            .with_fn("enter", Self::enter)
             .with_fn("clear", Self::clear);
     }
 }
@@ -866,6 +876,15 @@ pub(crate) mod test {
         assert_eq!(
             test_script(false, r#"lie.stop(); lie.clear()"#)?.fibs(),
             &[Fib::Stop, Fib::Clear]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn enter() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            test_script(false, r#"lie.enter("asdf")"#)?.fibs(),
+            &[Fib::Enter { msg: "asdf".into() }],
         );
         Ok(())
     }
