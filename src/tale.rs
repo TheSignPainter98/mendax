@@ -1,6 +1,6 @@
-use crate::lie::Lie;
 use crate::error::MendaxError;
 use crate::fib::Fib;
+use crate::lie::Lie;
 use crossterm::{
     cursor::{DisableBlinking, EnableBlinking, Hide, MoveTo, RestorePosition, SavePosition, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
@@ -14,26 +14,46 @@ use std::error::Error;
 use std::fmt::Display;
 use std::io::{self, Read, StdoutLock, Write};
 use std::{thread, time::Duration};
-use subprocess::{Exec, Redirection};
+use subprocess::{Exec, PopenError, Redirection};
 
 #[derive(Debug)]
 pub struct Tale {
     steps: Vec<Step>,
     tags: HashMap<String, usize>,
+    num_systems: usize,
 }
 
 impl From<Lie> for Tale {
     fn from(lie: Lie) -> Self {
         let mut steps = vec![];
         let mut tags = HashMap::new();
-        Self::flatten(&mut steps, &mut tags, lie.into_fibs());
+        let mut num_systems = 0;
+        let mut add_final_prompt = true;
+        Self::flatten(&mut steps, &mut tags, &mut num_systems, &mut add_final_prompt, lie.into_fibs());
 
-        Self { steps, tags }
+        if add_final_prompt {
+            steps.push(Step::Ps1);
+            steps.push(Step::ShowCursor);
+            steps.push(Step::Pause);
+            steps.push(Step::Show("".into()));
+        }
+
+        Self {
+            steps,
+            tags,
+            num_systems,
+        }
     }
 }
 
 impl Tale {
-    fn flatten(steps: &mut Vec<Step>, tags: &mut HashMap<String, usize>, fibs: Vec<Fib>) {
+    fn flatten(
+        steps: &mut Vec<Step>,
+        tags: &mut HashMap<String, usize>,
+        num_systems: &mut usize,
+        add_final_prompt: &mut bool,
+        fibs: Vec<Fib>,
+    ) {
         for fib in fibs {
             match fib {
                 Fib::Run { cmd, result } => {
@@ -57,7 +77,8 @@ impl Tale {
                     steps.push(Step::Pause);
                     steps.push(Step::Show("".into()));
                     steps.push(Step::HideCursor);
-                    steps.push(Step::System(cmd));
+                    steps.push(Step::System(System::new(cmd, *num_systems)));
+                    *num_systems += 1;
                 }
                 Fib::Screen {
                     apparent_cmd,
@@ -73,7 +94,7 @@ impl Tale {
                         steps.push(Step::HideCursor);
                     }
                     steps.push(Step::ScreenOpen);
-                    Self::flatten(steps, tags, child);
+                    Self::flatten(steps, tags, num_systems, add_final_prompt, child);
                     steps.push(Step::ShowCursor);
                     steps.push(Step::Pause);
                     steps.push(Step::ScreenClose);
@@ -102,7 +123,7 @@ impl Tale {
                         steps.push(Step::SetSpeed(speed));
                     }
                     if let Some(final_prompt) = final_prompt {
-                        steps.push(Step::SetFinalPrompt(final_prompt));
+                        *add_final_prompt = final_prompt;
                     }
                 }
                 Fib::Tag { name } => {
@@ -113,7 +134,7 @@ impl Tale {
         }
     }
 
-    pub fn tell(&self, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>> {
+    pub fn tell(&mut self, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>> {
         let mut style = Style::default();
 
         terminal::enable_raw_mode()?;
@@ -126,15 +147,30 @@ impl Tale {
         )?;
 
         let mut pc = 0;
+        let mut max_system = 0;
+        let mut system_cache = vec![SystemCacheEntry::default(); self.num_systems];
         while pc < self.steps.len() {
             match &self.steps[pc] {
                 Step::Pause => match self.pause(stdout)? {
                     UnpauseAction::Goto(jmp) => {
+                        if self.num_systems > 0 && jmp > max_system {
+                            self.steps[max_system + 1..=jmp]
+                                .iter()
+                                .filter_map(|step| {
+                                    if let Step::System(system) = step {
+                                        Some(system.capture(&mut system_cache[system.id()]))
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect::<Result<_, MendaxError>>()?;
+
+                            max_system = pc;
+                        }
                         pc = jmp;
                         continue;
                     }
                     UnpauseAction::Exit => {
-                        style.final_prompt = false;
                         break;
                     }
                     UnpauseAction::None => {}
@@ -156,24 +192,25 @@ impl Tale {
                     execute!(stdout, Print(line), Print("\r\n"))?;
                     stdout.flush()?;
                 }
-                Step::System(cmd) => {
-                    let out = Exec::shell(cmd)
-                        .stderr(Redirection::Merge)
-                        .stream_stdout()?;
-                    let mut final_newline = false;
-                    let mut stdout_nonempty = false;
-                    for b in out.bytes() {
-                        stdout_nonempty = true;
-                        let b = b?;
-                        if b == b'\n' {
-                            final_newline = true;
-                            execute!(stdout, Print("\r\n"))?;
-                        } else {
-                            final_newline = false;
-                            stdout.write_all(&[b])?;
+                Step::System(system) => {
+                    if max_system >= pc {
+                        let cache = &system_cache[system.id()];
+                        stdout.write_all(
+                            cache
+                                .output()
+                                .expect("internal error: system command not executed"),
+                        )?;
+                        if cache.requires_newline() {
+                            stdout.write_all(b"\r\n")?;
                         }
+                        pc += 1;
+                        continue;
                     }
-                    if stdout_nonempty && !final_newline {
+                    max_system = pc;
+
+                    let mut cache = &mut system_cache[system.id()];
+                    system.stream(stdout, &mut cache)?;
+                    if cache.requires_newline() {
                         execute!(
                             stdout,
                             SetAttribute(Attribute::Reverse),
@@ -182,6 +219,7 @@ impl Tale {
                             Print("\r\n")
                         )?;
                     }
+
                     execute!(stdout, SetAttribute(Attribute::Reset))?;
                 }
                 Step::Clear => execute!(stdout, Clear(ClearType::All))?,
@@ -195,17 +233,8 @@ impl Tale {
                 Step::SetCwd(cwd) => style.cwd = &cwd[..],
                 Step::SetHost(host) => style.host = &host[..],
                 Step::SetUser(user) => style.user = &user[..],
-                Step::SetFinalPrompt(final_prompt) => style.final_prompt = *final_prompt,
             }
             pc += 1;
-        }
-        if style.final_prompt {
-            execute!(stdout, Print(style.ps1()))?;
-            self.pause(stdout)?;
-        }
-
-        if style.final_newline {
-            execute!(stdout, Print("\r\n"))?;
         }
 
         execute!(stdout, EnableBlinking, Show)?;
@@ -299,7 +328,7 @@ enum Step {
     Ps1,
     Type(String),
     Show(String),
-    System(String),
+    System(System),
     Clear,
     ScreenOpen,
     ScreenClose,
@@ -312,7 +341,6 @@ enum Step {
     SetCwd(String),
     SetHost(String),
     SetUser(String),
-    SetFinalPrompt(bool),
 }
 
 enum UnpauseAction {
@@ -321,13 +349,77 @@ enum UnpauseAction {
     None,
 }
 
+#[derive(Debug)]
+struct System {
+    cmd: String,
+    id: usize,
+}
+
+impl System {
+    pub fn new(cmd: String, id: usize) -> Self {
+        Self { cmd, id }
+    }
+
+    fn cmd(&self) -> &str {
+        &self.cmd
+    }
+
+    fn id(&self) -> usize {
+        self.id
+    }
+
+    pub fn capture(&self, cache: &mut SystemCacheEntry) -> Result<(), MendaxError> {
+        self.exec(None, cache)
+    }
+
+    pub fn stream(
+        &self,
+        out: &mut StdoutLock,
+        cache: &mut SystemCacheEntry,
+    ) -> Result<(), MendaxError> {
+        self.exec(Some(out), cache)
+    }
+
+    fn exec(
+        &self,
+        mut out: Option<&mut StdoutLock>,
+        cache: &mut SystemCacheEntry,
+    ) -> Result<(), MendaxError> {
+        let mut buf = Vec::new();
+        let stream = Exec::shell(self.cmd())
+            .stderr(Redirection::Merge)
+            .stream_stdout()?;
+        let mut final_newline = false;
+        let mut stdout_nonempty = false;
+        for b in stream.bytes() {
+            stdout_nonempty = true;
+            let b = b.map_err(|e| PopenError::from(e))?;
+            final_newline = b == b'\n';
+            if final_newline {
+                if let Some(out) = &mut out {
+                    out.write_all(b"\r\n").map_err(|e| PopenError::from(e))?;
+                }
+                buf.write_all(b"\r\n").map_err(|e| PopenError::from(e))?;
+            } else {
+                if let Some(out) = &mut out {
+                    out.write_all(&[b]).map_err(|e| PopenError::from(e))?;
+                }
+                buf.write_all(&[b]).map_err(|e| PopenError::from(e))?;
+            }
+        }
+
+        cache.output = Some(buf);
+        cache.requires_newline = stdout_nonempty && !final_newline;
+
+        Ok(())
+    }
+}
+
 pub struct Style<'lie> {
     speed: f64,
     cwd: &'lie str,
     host: &'lie str,
     user: &'lie str,
-    final_prompt: bool,
-    final_newline: bool,
 }
 
 impl<'lie> Style<'lie> {
@@ -364,6 +456,22 @@ impl<'lie> Style<'lie> {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+struct SystemCacheEntry {
+    output: Option<Vec<u8>>,
+    requires_newline: bool,
+}
+
+impl SystemCacheEntry {
+    fn output(&self) -> Option<&[u8]> {
+        self.output.as_deref()
+    }
+
+    fn requires_newline(&self) -> bool {
+        self.requires_newline
+    }
+}
+
 impl Default for Style<'_> {
     fn default() -> Self {
         Self {
@@ -371,8 +479,6 @@ impl Default for Style<'_> {
             cwd: "~",
             host: "ubuntu",
             user: "ubuntu",
-            final_prompt: true,
-            final_newline: true,
         }
     }
 }

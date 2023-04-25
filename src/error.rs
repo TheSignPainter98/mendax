@@ -4,6 +4,7 @@ use std::{
     error::Error,
     path::PathBuf,
 };
+use subprocess::PopenError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -52,10 +53,19 @@ pub enum MendaxError {
 
     #[error("tag '{name}' is reserved")]
     InvalidTagName { name: String },
+
+    #[error("subprocess error: {error}")]
+    Subprocess { error: PopenError },
 }
 
 impl From<MendaxError> for EvalAltResult {
     fn from(value: MendaxError) -> Self {
         EvalAltResult::ErrorSystem("mendax error".into(), Box::new(value))
+    }
+}
+
+impl From<PopenError> for MendaxError {
+    fn from(error: PopenError) -> Self {
+        MendaxError::Subprocess { error }
     }
 }
