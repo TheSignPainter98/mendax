@@ -405,8 +405,11 @@ impl Lie {
     fn tag(&mut self, ctx: NativeCallContext, name: &str) -> Result<(), Box<EvalAltResult>> {
         let name = name.trim().to_string();
 
-        if name == "?" || name == "!" {
-            return Err(Box::new(MendaxError::InvalidTagName { name }.into()));
+        match &name[..] {
+            "" | "?" | "!" => {
+                return Err(Box::new(MendaxError::InvalidTagName { name }.into()));
+            },
+            _ => {}
         }
 
         let new_tag = self

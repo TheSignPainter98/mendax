@@ -253,11 +253,11 @@ impl Tale {
                             printed = true;
                         }
                         if !incorrect {
-                            write!(stdout, "enter tag: ")?;
+                            write!(stdout, "mendax: enter tag: ")?;
                         } else {
                             write!(
                                 stdout,
-                                "tag incorrect; enter tag or '?' to list available: "
+                                "mendax: tag incorrect; enter tag or '?' to list available: "
                             )?;
                         }
                         stdout.flush()?;
@@ -266,6 +266,10 @@ impl Tale {
                         io::stdin().read_line(&mut tag)?;
                         let tag = tag.trim();
 
+                        if tag == "" {
+                            println!("mendax: jump cancelled");
+                            return Ok(UnpauseAction::None);
+                        }
                         if tag == "?" {
                             let mut known_tags =
                                 self.tags.keys().map(|k| k.as_str()).collect::<Vec<_>>();
