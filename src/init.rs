@@ -54,7 +54,7 @@ mod test {
     use std::error::Error;
 
     use super::*;
-    use crate::config;
+    use crate::lie;
     use tempdir::TempDir;
 
     #[test]
@@ -64,7 +64,7 @@ mod test {
         let example_lie = tmp_dir.path().join("foo.rhai");
         init_example(&example_lie)?;
 
-        let result = config::read(example_lie.to_string_lossy().as_ref(), false);
+        let result = lie::read(example_lie.to_string_lossy().as_ref(), false);
         assert!(result.is_ok(), "unexpected error: {}", result.unwrap_err());
 
         Ok(())

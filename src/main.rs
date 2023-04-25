@@ -1,9 +1,10 @@
 mod args;
-mod config;
-mod dry_run;
+mod lie;
+// mod dry_run;
 mod error;
+mod fib;
 mod init;
-mod tell;
+mod tale;
 
 pub use error::MendaxError;
 
@@ -12,13 +13,12 @@ pub use error::MendaxError;
 extern crate pretty_assertions;
 
 use crate::args::Args;
-use crate::tell::Tell;
 use clap::Parser;
-use dry_run::DryRun;
+// use dry_run::DryRun;
+use crate::tale::Tale;
 use std::io::stdout;
 use std::path::PathBuf;
 use std::process::ExitCode;
-use tell::Style;
 
 fn main() -> ExitCode {
     let args = Args::parse();
@@ -28,7 +28,7 @@ fn main() -> ExitCode {
         return init::init(&fname);
     }
 
-    let lie = match config::read(fname, args.unrestricted()) {
+    let lie = match lie::read(fname, args.unrestricted()) {
         Ok(t) => t,
         Err(e) => {
             eprintln!("{}", e);
@@ -37,11 +37,12 @@ fn main() -> ExitCode {
     };
 
     if args.dry_run() {
-        println!("{}", lie.dry_run());
-        return ExitCode::SUCCESS;
+        todo!();
+        // println!("{}", lie.dry_run());
+        // return ExitCode::SUCCESS;
     }
 
-    match lie.tell(&mut stdout().lock(), &mut Style::default()) {
+    match Tale::from(lie).tell(&mut stdout().lock()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{e}");

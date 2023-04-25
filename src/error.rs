@@ -4,6 +4,7 @@ use std::{
     error::Error,
     path::PathBuf,
 };
+use subprocess::PopenError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -20,7 +21,7 @@ pub enum MendaxError {
     #[error("unknown colour {0:?}, expected one of: {}", .1.join(", "))]
     UnknownColour(String, &'static [&'static str]),
 
-    #[error("keyboard interrupt")]
+    #[error("^C")]
     KeyboardInterrupt,
 
     #[error("cannot nest screens")]
@@ -46,10 +47,25 @@ pub enum MendaxError {
         error: Box<BorrowMutError>,
         at: Option<Position>,
     },
+
+    #[error("tag '{name}' defined multiple times")]
+    DuplicateTag { name: String },
+
+    #[error("tag '{name}' is reserved")]
+    InvalidTagName { name: String },
+
+    #[error("subprocess error: {error}")]
+    Subprocess { error: PopenError },
 }
 
 impl From<MendaxError> for EvalAltResult {
     fn from(value: MendaxError) -> Self {
         EvalAltResult::ErrorSystem("mendax error".into(), Box::new(value))
+    }
+}
+
+impl From<PopenError> for MendaxError {
+    fn from(error: PopenError) -> Self {
+        MendaxError::Subprocess { error }
     }
 }

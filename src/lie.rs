@@ -1,10 +1,11 @@
-use crate::MendaxError;
+use crate::{fib::Fib, MendaxError};
 use rhai::{
     Array, CustomType, Dynamic, Engine, EvalAltResult, FnPtr, Map, NativeCallContext, Scope,
     TypeBuilder,
 };
 use std::{
     cell::{Ref, RefCell, RefMut},
+    collections::HashSet,
     fs,
     path::Path,
     rc::Rc,
@@ -16,13 +17,13 @@ pub fn read<P: AsRef<Path>>(fname: P, unrestricted: bool) -> Result<Lie, Box<Eva
     let engine = engine(unrestricted);
 
     let mut scope = Scope::new();
-    scope.push("lie", SharedLieBuilder::new(unrestricted));
+    scope.push("lie", SharedLie::new(unrestricted));
 
     let src = get_src(fname)?;
     let ast = engine.compile_with_scope(&scope, src)?;
     engine.run_ast_with_scope(&mut scope, &ast)?;
 
-    scope.get_value::<SharedLieBuilder>("lie").unwrap().build()
+    scope.get_value::<SharedLie>("lie").unwrap().try_into()
 }
 
 fn get_src(fname: &Path) -> Result<String, Box<EvalAltResult>> {
@@ -50,7 +51,7 @@ fn get_src(fname: &Path) -> Result<String, Box<EvalAltResult>> {
 
 fn engine(unrestricted: bool) -> Engine {
     let mut engine = Engine::new();
-    engine.build_type::<SharedLieBuilder>();
+    engine.build_type::<SharedLie>();
 
     if !unrestricted {
         engine.set_max_array_size(1000);
@@ -67,51 +68,38 @@ fn engine(unrestricted: bool) -> Engine {
     engine
 }
 
-#[derive(Debug)]
-pub struct Lie {
-    tale: Tale,
-}
-
-impl Lie {
-    fn new(tale: Tale) -> Self {
-        Self { tale }
-    }
-
-    pub fn tale(&self) -> &Tale {
-        &self.tale
-    }
-}
-
 #[derive(Clone, Debug)]
-struct SharedLieBuilder(Rc<RefCell<LieBuilder>>);
+struct SharedLie(Rc<RefCell<Lie>>);
 
-impl From<LieBuilder> for SharedLieBuilder {
-    fn from(lie: LieBuilder) -> Self {
-        Self(Rc::new(RefCell::new(lie)))
+impl From<Lie> for SharedLie {
+    fn from(tale: Lie) -> Self {
+        Self(Rc::new(RefCell::new(tale)))
     }
 }
 
-impl SharedLieBuilder {
+impl TryFrom<SharedLie> for Lie {
+    type Error = Box<EvalAltResult>;
+
+    fn try_from(shared: SharedLie) -> Result<Self, Self::Error> {
+        Ok(shared
+            .0
+            .try_borrow()
+            .map_err(|e| {
+                Box::new(EvalAltResult::from(MendaxError::LieUnreadable {
+                    error: Box::new(e),
+                    at: None,
+                }))
+            })?
+            .clone())
+    }
+}
+
+impl SharedLie {
     fn new(allow_system: bool) -> Self {
-        Self::from(LieBuilder::new(allow_system))
+        Self::from(Lie::new(allow_system))
     }
 
-    fn build(self) -> Result<Lie, Box<EvalAltResult>> {
-        Ok(Lie::new(
-            self.0
-                .try_borrow()
-                .map_err(|e| {
-                    Box::new(EvalAltResult::from(MendaxError::LieUnreadable {
-                        error: Box::new(e),
-                        at: None,
-                    }))
-                })?
-                .tale
-                .clone(),
-        ))
-    }
-
-    fn lie(&self, ctx: &NativeCallContext) -> Result<Ref<'_, LieBuilder>, Box<EvalAltResult>> {
+    fn lie(&self, ctx: &NativeCallContext) -> Result<Ref<'_, Lie>, Box<EvalAltResult>> {
         self.0.try_borrow().map_err(|e| {
             Box::new(EvalAltResult::from(MendaxError::LieUnreadable {
                 error: Box::new(e),
@@ -120,10 +108,7 @@ impl SharedLieBuilder {
         })
     }
 
-    fn lie_mut(
-        &self,
-        ctx: &NativeCallContext,
-    ) -> Result<RefMut<'_, LieBuilder>, Box<EvalAltResult>> {
+    fn lie_mut(&self, ctx: &NativeCallContext) -> Result<RefMut<'_, Lie>, Box<EvalAltResult>> {
         self.0.try_borrow_mut().map_err(|e| {
             Box::new(EvalAltResult::from(MendaxError::LieUnwritable {
                 error: Box::new(e),
@@ -212,6 +197,10 @@ impl SharedLieBuilder {
         lie.lie_mut(&ctx)?.look(options)
     }
 
+    fn tag(ctx: NativeCallContext, lie: &mut Self, name: &str) -> Result<(), Box<EvalAltResult>> {
+        lie.lie_mut(&ctx)?.tag(ctx, name)
+    }
+
     fn clear(ctx: NativeCallContext, lie: &mut Self) -> Result<(), Box<EvalAltResult>> {
         lie.lie_mut(&ctx)?.clear();
         Ok(())
@@ -219,24 +208,31 @@ impl SharedLieBuilder {
 }
 
 #[derive(Clone, Debug)]
-pub struct LieBuilder {
-    tale: Tale,
+pub struct Lie {
+    fibs: Vec<Fib>,
+    known_tags: Rc<RefCell<HashSet<String>>>,
     allow_system: bool,
     root: bool,
 }
 
-impl LieBuilder {
+impl Lie {
     fn new(allow_system: bool) -> Self {
         Self {
-            tale: Tale::new(),
+            fibs: Vec::new(),
+            known_tags: Rc::new(RefCell::new(HashSet::new())),
             allow_system,
             root: true,
         }
     }
 
+    pub fn into_fibs(self) -> Vec<Fib> {
+        self.fibs
+    }
+
     fn child(&self) -> Self {
         Self {
-            tale: Tale::new(),
+            fibs: vec![],
+            known_tags: self.known_tags.clone(),
             allow_system: self.allow_system,
             root: false,
         }
@@ -257,20 +253,20 @@ impl LieBuilder {
 
     fn run(&mut self, cmd: &str, result: Vec<String>) {
         let cmd = cmd.into();
-        self.tale.push(Fib::Run { cmd, result });
+        self.fibs.push(Fib::Run { cmd, result });
     }
 
     fn show(&mut self, text: &str) {
         let text = text.into();
-        self.tale.push(Fib::Show { text });
+        self.fibs.push(Fib::Show { text });
     }
 
     fn cd(&mut self, dir: &str) {
-        self.tale.push(Fib::Run {
+        self.fibs.push(Fib::Run {
             cmd: format!("cd {dir}"),
             result: vec![],
         });
-        self.tale.push(Fib::Look {
+        self.fibs.push(Fib::Look {
             cwd: Some(dir.into()),
             host: None,
             user: None,
@@ -291,7 +287,7 @@ impl LieBuilder {
 
         let apparent_cmd = apparent_cmd.map(ToOwned::to_owned);
         let cmd = cmd.into();
-        self.tale.push(Fib::System { apparent_cmd, cmd });
+        self.fibs.push(Fib::System { apparent_cmd, cmd });
 
         Ok(())
     }
@@ -314,12 +310,12 @@ impl LieBuilder {
             return Err(Box::new(MendaxError::NestedScreens.into()));
         }
 
-        let child = SharedLieBuilder::from(self.child());
+        let child = SharedLie::from(self.child());
         f.call_within_context(&ctx, (child.clone(),))?;
 
-        self.tale.push(Fib::Screen {
+        self.fibs.push(Fib::Screen {
             apparent_cmd: apparent_cmd.map(ToOwned::to_owned),
-            tale: child.lie(&ctx)?.tale.clone(),
+            fibs: child.lie(&ctx)?.fibs.clone(),
         });
 
         Ok(())
@@ -394,7 +390,7 @@ impl LieBuilder {
             }
         }
 
-        self.tale.push(Fib::Look {
+        self.fibs.push(Fib::Look {
             speed,
             title,
             cwd,
@@ -406,12 +402,40 @@ impl LieBuilder {
         Ok(())
     }
 
+    fn tag(&mut self, ctx: NativeCallContext, name: &str) -> Result<(), Box<EvalAltResult>> {
+        let name = name.trim().to_string();
+
+        match &name[..] {
+            "" | "?" | "!" => {
+                return Err(Box::new(MendaxError::InvalidTagName { name }.into()));
+            },
+            _ => {}
+        }
+
+        let new_tag = self
+            .known_tags
+            .try_borrow_mut()
+            .map_err(|e| {
+                EvalAltResult::from(MendaxError::LieUnwritable {
+                    error: Box::new(e),
+                    at: Some(ctx.position()),
+                })
+            })?
+            .insert(name.clone());
+        if !new_tag {
+            return Err(Box::new(MendaxError::DuplicateTag { name }.into()));
+        }
+
+        self.fibs.push(Fib::Tag { name });
+        Ok(())
+    }
+
     fn clear(&mut self) {
-        self.tale.push(Fib::Clear);
+        self.fibs.push(Fib::Clear);
     }
 }
 
-impl CustomType for SharedLieBuilder {
+impl CustomType for SharedLie {
     fn build(mut builder: TypeBuilder<Self>) {
         builder
             .with_name("Lie")
@@ -425,59 +449,21 @@ impl CustomType for SharedLieBuilder {
             .with_fn("screen", Self::screen_simple)
             .with_fn("screen", Self::screen)
             .with_fn("look", Self::look)
+            .with_fn("tag", Self::tag)
             .with_fn("clear", Self::clear);
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Tale(Vec<Fib>);
-
-impl Tale {
-    fn new() -> Self {
-        Self(vec![])
+#[cfg(test)]
+impl Lie {
+    pub fn fibs(&self) -> &[Fib] {
+        &self.fibs
     }
-
-    fn push(&mut self, fib: Fib) {
-        self.0.push(fib)
-    }
-
-    pub fn fibs(&self) -> &Vec<Fib> {
-        &self.0
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Fib {
-    Run {
-        cmd: String,
-        result: Vec<String>,
-    },
-    Show {
-        text: String,
-    },
-    System {
-        apparent_cmd: Option<String>,
-        cmd: String,
-    },
-    Screen {
-        apparent_cmd: Option<String>,
-        tale: Tale,
-    },
-    Look {
-        speed: Option<f64>,
-        title: Option<String>,
-        cwd: Option<String>,
-        user: Option<String>,
-        host: Option<String>,
-        final_prompt: Option<bool>,
-    },
-    Clear,
 }
 
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
-    use crate::config;
     use regex::Regex;
     use std::{
         error::Error,
@@ -502,8 +488,8 @@ pub(crate) mod test {
         let mut file = File::create(&path)?;
         file.write_all(r#"lie.show("hello");"#.as_bytes())?;
 
-        assert!(config::read(&path, false).is_ok());
-        assert!(config::read(path.with_extension(""), false).is_ok());
+        assert!(read(&path, false).is_ok());
+        assert!(read(path.with_extension(""), false).is_ok());
 
         Ok(())
     }
@@ -520,7 +506,7 @@ pub(crate) mod test {
         )?;
 
         assert_eq!(
-            lie.tale().fibs(),
+            lie.fibs(),
             &[
                 Fib::Run {
                     cmd: "foo".into(),
@@ -550,7 +536,7 @@ pub(crate) mod test {
         )?;
 
         assert_eq!(
-            lie.tale().fibs(),
+            lie.fibs(),
             &[Fib::Show {
                 text: "foobar".into()
             }]
@@ -569,7 +555,7 @@ pub(crate) mod test {
         )?;
 
         assert_eq!(
-            lie.tale().fibs(),
+            lie.fibs(),
             &[
                 Fib::Run {
                     cmd: "cd /foo/bar".into(),
@@ -601,7 +587,7 @@ pub(crate) mod test {
             )?;
 
             assert_eq!(
-                lie.tale().fibs(),
+                lie.fibs(),
                 &[
                     Fib::System {
                         cmd: "ls".into(),
@@ -640,14 +626,13 @@ pub(crate) mod test {
                         });
                     "#,
                 )?
-                .tale()
                 .fibs(),
                 &[Fib::Screen {
                     apparent_cmd: None,
-                    tale: Tale(vec![Fib::System {
+                    fibs: vec![Fib::System {
                         cmd: "sudo ls /root".into(),
                         apparent_cmd: Some("ls".into()),
-                    }])
+                    }]
                 }]
             );
 
@@ -676,14 +661,13 @@ pub(crate) mod test {
                         });
                     "#,
                 )?
-                .tale()
                 .fibs(),
                 &[Fib::Screen {
                     apparent_cmd: Some("man foo".into()),
-                    tale: Tale(vec![Fib::System {
+                    fibs: vec![Fib::System {
                         cmd: "sudo ls /root".into(),
                         apparent_cmd: Some("ls".into()),
-                    }])
+                    }]
                 }]
             );
 
@@ -706,9 +690,86 @@ pub(crate) mod test {
     }
 
     #[test]
+    fn tag() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            test_script(false, r#"lie.tag("foo")"#).unwrap().fibs(),
+            &[Fib::Tag { name: "foo".into() }],
+        );
+
+        assert_eq!(
+            test_script(
+                false,
+                r#"
+                    lie.tag("foo");
+                    lie.tag("foo");
+                "#,
+            )
+            .unwrap_err()
+            .to_string(),
+            "mendax error: tag 'foo' defined multiple times",
+        );
+
+        assert_eq!(
+            test_script(
+                false,
+                r#"
+                    lie.tag("foo");
+                    lie.screen(|lie| {
+                        lie.tag("foo");
+                    });
+                "#,
+            )
+            .unwrap_err()
+            .to_string(),
+            "mendax error: tag 'foo' defined multiple times",
+        );
+
+        assert_eq!(
+            test_script(
+                false,
+                r#"
+                    lie.screen(|lie| {
+                        lie.tag("foo");
+                    });
+                    lie.tag("foo");
+                "#,
+            )
+            .unwrap_err()
+            .to_string(),
+            "mendax error: tag 'foo' defined multiple times",
+        );
+
+        assert_eq!(
+            test_script(
+                false,
+                r#"
+                    lie.tag("!")
+                "#,
+            )
+            .unwrap_err()
+            .to_string(),
+            "mendax error: tag '!' is reserved",
+        );
+
+        assert_eq!(
+            test_script(
+                false,
+                r#"
+                    lie.tag("?")
+                "#,
+            )
+            .unwrap_err()
+            .to_string(),
+            "mendax error: tag '?' is reserved",
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn look() -> Result<(), Box<dyn Error>> {
         assert_eq!(
-            test_script(false, r#"lie.look(#{});"#)?.tale().fibs(),
+            test_script(false, r#"lie.look(#{});"#)?.fibs(),
             &[Fib::Look {
                 speed: None,
                 title: None,
@@ -733,7 +794,6 @@ pub(crate) mod test {
                     });
                 "#
             )?
-            .tale()
             .fibs(),
             &[Fib::Look {
                 speed: Some(100.0),
@@ -750,10 +810,7 @@ pub(crate) mod test {
 
     #[test]
     fn clear() -> Result<(), Box<dyn Error>> {
-        assert_eq!(
-            test_script(false, r#"lie.clear()"#)?.tale().fibs(),
-            &[Fib::Clear]
-        );
+        assert_eq!(test_script(false, r#"lie.clear()"#)?.fibs(), &[Fib::Clear]);
 
         Ok(())
     }
