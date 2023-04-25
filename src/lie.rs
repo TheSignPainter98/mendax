@@ -9,6 +9,7 @@ use std::{
     fs,
     path::Path,
     rc::Rc,
+    time::Duration,
 };
 
 pub fn read<P: AsRef<Path>>(fname: P, unrestricted: bool) -> Result<Lie, Box<EvalAltResult>> {
@@ -199,6 +200,10 @@ impl SharedLie {
 
     fn tag(ctx: NativeCallContext, lie: &mut Self, name: &str) -> Result<(), Box<EvalAltResult>> {
         lie.lie_mut(&ctx)?.tag(ctx, name)
+    }
+
+    fn sleep(ctx: NativeCallContext, lie: &mut Self, millis: i64) -> Result<(), Box<EvalAltResult>> {
+        lie.lie_mut(&ctx)?.sleep(millis as u64)
     }
 
     fn clear(ctx: NativeCallContext, lie: &mut Self) -> Result<(), Box<EvalAltResult>> {
@@ -430,6 +435,12 @@ impl Lie {
         Ok(())
     }
 
+    fn sleep(&mut self, millis: u64) -> Result<(), Box<EvalAltResult>> {
+        self.fibs.push(Fib::Sleep{duration: Duration::from_millis(millis)});
+
+        Ok(())
+    }
+
     fn clear(&mut self) {
         self.fibs.push(Fib::Clear);
     }
@@ -450,6 +461,7 @@ impl CustomType for SharedLie {
             .with_fn("screen", Self::screen)
             .with_fn("look", Self::look)
             .with_fn("tag", Self::tag)
+            .with_fn("sleep", Self::sleep)
             .with_fn("clear", Self::clear);
     }
 }
@@ -806,6 +818,12 @@ pub(crate) mod test {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn sleep() -> Result<(), Box<dyn Error>> {
+        assert_eq!(test_script(false, r#"lie.sleep(250)"#)?.fibs(), &[Fib::Sleep{ duration: Duration::from_millis(250) }]);
+            Ok(())
     }
 
     #[test]

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Fib {
     Run {
@@ -25,6 +27,9 @@ pub enum Fib {
     },
     Tag {
         name: String,
+    },
+    Sleep {
+        duration: Duration,
     },
     Clear,
 }

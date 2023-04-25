@@ -135,6 +135,7 @@ impl Tale {
                 Fib::Tag { name } => {
                     tags.insert(name, steps.len());
                 }
+                Fib::Sleep { duration } => steps.push(Step::Sleep(duration)),
                 Fib::Clear => steps.push(Step::Clear),
             }
         }
@@ -228,6 +229,7 @@ impl Tale {
 
                     execute!(stdout, SetAttribute(Attribute::Reset))?;
                 }
+                Step::Sleep(duration) => thread::sleep(*duration),
                 Step::Clear => execute!(stdout, Clear(ClearType::All))?,
                 Step::ScreenOpen => {
                     execute!(stdout, SavePosition, EnterAlternateScreen, MoveTo(0, 0))?
@@ -335,6 +337,7 @@ enum Step {
     Type(String),
     Show(String),
     System(System),
+    Sleep(Duration),
     Clear,
     ScreenOpen,
     ScreenClose,
