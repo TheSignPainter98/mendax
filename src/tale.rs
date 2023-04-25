@@ -66,8 +66,10 @@ impl Tale {
                     steps.push(Step::Ps1);
                     steps.push(Step::ShowCursor);
                     steps.push(Step::Pause);
-                    steps.push(Step::Type(cmd));
-                    steps.push(Step::Pause);
+                    if !cmd.trim().is_empty() {
+                        steps.push(Step::Type(cmd));
+                        steps.push(Step::Pause);
+                    }
                     steps.push(Step::Show("".into()));
                     steps.push(Step::HideCursor);
                     for line in result {
@@ -94,8 +96,10 @@ impl Tale {
                         steps.push(Step::Ps1);
                         steps.push(Step::ShowCursor);
                         steps.push(Step::Pause);
-                        steps.push(Step::Type(apparent_cmd));
-                        steps.push(Step::Pause);
+                        if !apparent_cmd.trim().is_empty() {
+                            steps.push(Step::Type(apparent_cmd));
+                            steps.push(Step::Pause);
+                        }
                         steps.push(Step::Show("".into()));
                         steps.push(Step::HideCursor);
                     }
