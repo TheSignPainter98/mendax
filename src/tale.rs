@@ -137,6 +137,11 @@ impl Tale {
                 }
                 Fib::Sleep { duration } => steps.push(Step::Sleep(duration)),
                 Fib::Stop => steps.push(Step::Stop),
+                Fib::Enter { msg } => {
+                    steps.push(Step::Type(msg));
+                    steps.push(Step::Pause);
+                    steps.push(Step::Show("".into()));
+                }
                 Fib::Clear => steps.push(Step::Clear),
             }
         }
@@ -334,11 +339,11 @@ impl Tale {
 enum Step {
     Pause,
     Ps1,
-    Type(String),
     Show(String),
     System(System),
     Sleep(Duration),
     Stop,
+    Type(String),
     Clear,
     ScreenOpen,
     ScreenClose,

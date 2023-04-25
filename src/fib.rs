@@ -32,5 +32,8 @@ pub enum Fib {
         duration: Duration,
     },
     Stop,
+    Enter {
+        msg: String,
+    },
     Clear,
 }
