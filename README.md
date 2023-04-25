@@ -75,7 +75,7 @@ lie.run("foo", ["bar", "baz"]);
 
 To pretend to `cd` into a given directory (and hence update the prompt), use `lie.cd`.
 ```rhai
-lie.cd(“/dir”);
+lie.cd("/dir");
 ```
 
 To show some text, use `lie.show`.
@@ -119,8 +119,8 @@ To change the look and feel of the lie, use `lie.look`.
 This takes a map which contains the values the user wishes to change.
 ```rhai
 lie.look(#[ // Note: all fields are optional
-    title: “foo”        // Set the title of the terminal window
-    cwd: “/bar”,        // Set prompt directory
+    title: "foo"        // Set the title of the terminal window
+    cwd: "/bar",        // Set prompt directory
     user: "methos",     // Set prompt user
     host: "gaia",       // Set prompt host
     speed: 100,         // Set the typing speed
