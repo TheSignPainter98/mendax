@@ -29,7 +29,13 @@ impl From<Lie> for Tale {
         let mut tags = HashMap::new();
         let mut num_systems = 0;
         let mut add_final_prompt = true;
-        Self::flatten(&mut steps, &mut tags, &mut num_systems, &mut add_final_prompt, lie.into_fibs());
+        Self::flatten(
+            &mut steps,
+            &mut tags,
+            &mut num_systems,
+            &mut add_final_prompt,
+            lie.into_fibs(),
+        );
 
         if add_final_prompt {
             steps.push(Step::Ps1);
@@ -208,8 +214,8 @@ impl Tale {
                     }
                     max_system = pc;
 
-                    let mut cache = &mut system_cache[system.id()];
-                    system.stream(stdout, &mut cache)?;
+                    let cache = &mut system_cache[system.id()];
+                    system.stream(stdout, cache)?;
                     if cache.requires_newline() {
                         execute!(
                             stdout,
@@ -295,7 +301,7 @@ impl Tale {
                         io::stdin().read_line(&mut tag)?;
                         let tag = tag.trim();
 
-                        if tag == "" {
+                        if tag.is_empty() {
                             println!("mendax: jump cancelled");
                             return Ok(UnpauseAction::None);
                         }
@@ -393,18 +399,18 @@ impl System {
         let mut stdout_nonempty = false;
         for b in stream.bytes() {
             stdout_nonempty = true;
-            let b = b.map_err(|e| PopenError::from(e))?;
+            let b = b.map_err(PopenError::from)?;
             final_newline = b == b'\n';
             if final_newline {
                 if let Some(out) = &mut out {
-                    out.write_all(b"\r\n").map_err(|e| PopenError::from(e))?;
+                    out.write_all(b"\r\n").map_err(PopenError::from)?;
                 }
-                buf.write_all(b"\r\n").map_err(|e| PopenError::from(e))?;
+                buf.write_all(b"\r\n").map_err(PopenError::from)?;
             } else {
                 if let Some(out) = &mut out {
-                    out.write_all(&[b]).map_err(|e| PopenError::from(e))?;
+                    out.write_all(&[b]).map_err(PopenError::from)?;
                 }
-                buf.write_all(&[b]).map_err(|e| PopenError::from(e))?;
+                buf.write_all(&[b]).map_err(PopenError::from)?;
             }
         }
 

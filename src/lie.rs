@@ -408,7 +408,7 @@ impl Lie {
         match &name[..] {
             "" | "?" | "!" => {
                 return Err(Box::new(MendaxError::InvalidTagName { name }.into()));
-            },
+            }
             _ => {}
         }
 
