@@ -134,8 +134,8 @@ The `lie.system` method has two forms.
 The first takes a single string, pretends to type it then runs it on the host.
 The second takes two strings, the first of which is the fake command to type and the second of which is the command to _actually_ run and which is hidden from the user.
 ```rhai
-lie.system("adf");
-lie.system("fake", "actual");
+lie.system("ls");
+lie.system("echo foo", "ls");
 ```
 
 ## Author, License and Name
