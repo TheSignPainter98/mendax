@@ -1,7 +1,7 @@
 # Mendax
 
 A CLI spoofer—like [asciinema][asciinema] but in real-time.
-Specify inputs to fake, outputs to fake, all of which may be checked before running.
+Specify inputs to fake and outputs to fake, all of which may be checked before running.
 
 ## Table of Contents
 
@@ -11,32 +11,33 @@ Specify inputs to fake, outputs to fake, all of which may be checked before runn
 * [Installation](#installation)
 * [Not sure where to start?](#not-sure-where-to-start)
 * [Writing the lie](#writing-the-lie)
-* [Input format](#input-format)
-    * [Input actions](#input-actions)
-    * [Output actions](#output-actions)
 * [Author, License and Name](#author-license-and-name)
 
 <!-- vim-markdown-toc -->
 
 ## Why?
 
-In my experience, a demo of a product is _far_ more likely to break than production code. If code is in production, it’s likely gone through many layers of testing and checking so there’s a pretty good change it does what it says on the tin. If code is used in demos, suddenly, it’s a completly different matter. Perhaps that minor change you made just fixing ‘that one last thing’ before the presentation turns out to break something critical. Perhaps your internet connection decides it just doesn’t want to work anymore, despite working literally ten minutes earlier. Suddenly, due factors which may be beyond your control, you’re now awkwardly filling time trying to fix code, questioning both the program itself and your life choices which led up to this moment.
+In my experience, a demo of a product is _far_ more likely to break than production code.
+If code is in production, it’s likely gone through many layers of testing and checking so there’s a pretty good chance it does what it says on the tin.
+If code is used in demos, suddenly, it’s a completly different matter.
+Perhaps that minor change you made just fixing ‘that one last thing’ before the presentation turns out to break something critical.
+Perhaps your internet connection decides it just doesn’t want to work anymore, despite being fine ten minutes earlier.
+Suddenly, due factors which may be beyond your control, you’re now awkwardly filling time trying to fix code, questioning both the program itself and the life choices which led up to this moment.
 
 Well no more.
 
 Mendax offers:
 
-- **Sandboxed spoofing---**unless you specifically allow it, mendax runs in a complete sandbox, unable to read or alter the host system’s state
-- **Dry running---**demos can be checked ahead of time
-- **Time travel---**tag important moments in the demo so you can jump between them at showtime
+- **Sandboxed spoofing**---unless you specifically allow it, mendax runs in a complete sandbox, unable to read or alter the host system’s state. No more surprises!
+- **Dry running**---demos can be checked ahead of time. Higher quality in less development time.
+- **Time travel**---tag important moments in the demo so you can jump between them at showtime. Adapt to your audience.
 
-Oh and one more thing, creating asciinema and getting annoyed at your typing speed and spelling mistakes? (I often do)
-All these problems can go away just by running---
-
+Oh and one more thing, do you creating [asciinema][asciinema] recordings and getting annoyed at your typing speed and spelling mistakes?
+Well I do, and quite a bit; what should be a five minute job can stretch for far longer as I stress about the tiniest details.
+All this can go away just by running---
 ```bash
 asciinema rec -c mendax
 ```
-And mendax will run your demo for you, all you have to do is time the prompts as you like.
 
 ## Installation
 
@@ -137,63 +138,12 @@ lie.system("adf");
 lie.system("fake", "actual");
 ```
 
-The fake command-prompt shown can be modified using options, see `mendax --help` for more information.
-
-## Input format
-
-The sequence of actions to be shown is given in a YAML file.
-These actions are either input actions or output actions.
-
-```yaml
-- cmd: gcc --version
-- print: |
-    gcc (Ubuntu 11.3.0-1ubuntu1~22.04) 11.3.0
-    Copyright (C) 2021 Free Software Foundation, Inc.
-    This is free software; see the source for copying conditions.  There is NO
-    warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-```
-
-This will type out `gcc --version` into the fake command prompt and output `gcc (Ubuntu 11.3.0-...`.
-Each time the output stops (for example to allow the user to explain something), any key may be pressed to continue the demonstration.
-
-### Input actions
-
-An input action will show a fake terminal prompt, pause for the user to press a button, then write out the given command.
-It looks like the following:
-
-```yaml
-- cmd: juju status      # Mandatory: the command to type out
-  prompt: '$ '          # Optional: override default bash-style prompt
-  dir: 'Documents/juju' # Optional: override default directory in default prompt
-```
-
-### Output actions
-
-An output action will print something verbatim onto the screen.
-This has three forms: printing a block, printing a sequence of lines, or showing a screen
-
-To print a block of text, specify a string to print:
-
-```yaml
-- print: |
-    Model       Controller          Cloud/Region        Version  SLA          Timestamp
-    controller  microk8s-localhost  microk8s/localhost  2.9.37   unsupported  11:19:55Z
-```
-
-To print text line by line (for example to simulate the output as a program computes values), specify a list of strings to print:
-
-```yaml
-- print:
-  - Model       Controller          Cloud/Region        Version  SLA          Timestamp
-  - controller  microk8s-localhost  microk8s/localhost  2.9.37   unsupported  11:19:55Z
-  speed: snail # Optional: override default print frequency
-```
-
 ## Author, License and Name
 
 This project is maintained by Ed Jones and is licensed under the GNU General Public License version 3.
 
 The name ‘mendax’ is a Latin word which roughly translates to ‘narrator,’ ‘storyteller,’ or ‘habitual liar.’
+Exactly which meaning is the most appropriate is left as an exercise for the reader.
 
 [asciinema]: https://asciinema.org/
 [rhai]: https://rhai.rs/book/
