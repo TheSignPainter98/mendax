@@ -1,6 +1,6 @@
 mod args;
 mod lie;
-// mod dry_run;
+mod dry_run;
 mod error;
 mod fib;
 mod init;
@@ -14,7 +14,7 @@ extern crate pretty_assertions;
 
 use crate::args::Args;
 use clap::Parser;
-// use dry_run::DryRun;
+use dry_run::DryRun;
 use crate::tale::Tale;
 use std::io::stdout;
 use std::path::PathBuf;
@@ -37,9 +37,8 @@ fn main() -> ExitCode {
     };
 
     if args.dry_run() {
-        todo!();
-        // println!("{}", lie.dry_run());
-        // return ExitCode::SUCCESS;
+        println!("{}", lie.dry_run());
+        return ExitCode::SUCCESS;
     }
 
     match Tale::from(lie).tell(&mut stdout().lock()) {

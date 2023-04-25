@@ -1,4 +1,7 @@
-use crate::config::{Fib, Lie, Tale};
+use crate::{
+    lie::Lie,
+    fib::Fib,
+};
 
 pub struct DryRunBuilder {
     buf: Vec<String>,
@@ -34,15 +37,13 @@ pub trait DryRun {
 
 impl DryRun for Lie {
     fn build_dry_run(&self, builder: &mut DryRunBuilder, depth: usize) {
-        self.tale().build_dry_run(builder, depth);
+        self.fibs().build_dry_run(builder, depth);
     }
 }
 
-impl DryRun for Tale {
+impl DryRun for &[Fib] {
     fn build_dry_run(&self, builder: &mut DryRunBuilder, depth: usize) {
-        for fib in self.fibs() {
-            fib.build_dry_run(builder, depth);
-        }
+        self.iter().for_each(|fib| fib.build_dry_run(builder, depth));
     }
 }
 
@@ -67,12 +68,12 @@ impl DryRun for Fib {
                     builder.add_line(format!("! {cmd}"), depth);
                 }
             }
-            Self::Screen { apparent_cmd, tale } => {
+            Self::Screen { apparent_cmd, fibs } => {
                 if let Some(apparent_cmd) = apparent_cmd {
                     builder.add_line(format!("$ {apparent_cmd}"), depth)
                 }
                 builder.add_line("(screen)", depth);
-                tale.build_dry_run(builder, depth + 1);
+                fibs.as_slice().build_dry_run(builder, depth + 1);
             }
             Self::Look {
                 speed,
@@ -114,7 +115,10 @@ impl DryRun for Fib {
                     depth,
                 );
             }
-            Self::Tag { name } => builder.add_line(format!("@ {name}"), depth),
+            Self::Tag { name } => builder.add_line(format!("(tag) {name}"), depth),
+            Self::Sleep { duration } => builder.add_line(format!("(sleep) {}", pretty_duration::pretty_duration(duration, None)), depth),
+            Self::Stop => builder.add_line("(STOP)", depth),
+            Self::Enter { msg } => builder.add_line(format!("(enter) {msg}"), depth),
             Self::Clear => builder.add_line("(clear)", depth),
         }
     }
@@ -123,13 +127,13 @@ impl DryRun for Fib {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::config;
+    use crate::lie;
     use indoc::indoc;
 
     #[test]
     fn all() {
         assert_eq!(
-            config::test::test_script(
+            lie::test::test_script(
                 true,
                 r#"
                     fn populate(lie) {
@@ -140,6 +144,9 @@ mod test {
                         lie.cd("/root");
                         lie.system("ls");
                         lie.system("ls", "dir");
+                        lie.sleep(100);
+                        lie.stop();
+                        lie.enter("asdf");
                     }
                     populate(lie);
                     lie.screen(|lie| {
@@ -166,6 +173,9 @@ mod test {
                 (look: cwd=/root)
                 ! ls
                 ! ls (secretly calls: dir)
+                (sleep) 100ms
+                (STOP)
+                (enter) asdf
                 (screen)
                     $ echo foo
                     $ echo asdf
@@ -180,6 +190,9 @@ mod test {
                     (look: cwd=/root)
                     ! ls
                     ! ls (secretly calls: dir)
+                    (sleep) 100ms
+                    (STOP)
+                    (enter) asdf
                 $ man foo
                 (screen)
                     $ echo foo
@@ -195,6 +208,9 @@ mod test {
                     (look: cwd=/root)
                     ! ls
                     ! ls (secretly calls: dir)
+                    (sleep) 100ms
+                    (STOP)
+                    (enter) asdf
             "#}
             .trim(),
         );

@@ -244,6 +244,10 @@ impl Lie {
         }
     }
 
+    pub fn fibs(&self) -> &[Fib] {
+        &self.fibs
+    }
+
     pub fn into_fibs(self) -> Vec<Fib> {
         self.fibs
     }
@@ -496,13 +500,6 @@ impl CustomType for SharedLie {
             .with_fn("stop", Self::stop)
             .with_fn("enter", Self::enter)
             .with_fn("clear", Self::clear);
-    }
-}
-
-#[cfg(test)]
-impl Lie {
-    pub fn fibs(&self) -> &[Fib] {
-        &self.fibs
     }
 }
 
