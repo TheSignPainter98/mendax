@@ -210,6 +210,11 @@ impl SharedLie {
         lie.lie_mut(&ctx)?.sleep(millis as u64)
     }
 
+    fn stop(ctx: NativeCallContext, lie: &mut Self) -> Result<(), Box<EvalAltResult>> {
+        lie.lie_mut(&ctx)?.stop();
+        Ok(())
+    }
+
     fn clear(ctx: NativeCallContext, lie: &mut Self) -> Result<(), Box<EvalAltResult>> {
         lie.lie_mut(&ctx)?.clear();
         Ok(())
@@ -454,6 +459,10 @@ impl Lie {
         Ok(())
     }
 
+    fn stop(&mut self) {
+        self.fibs.push(Fib::Stop);
+    }
+
     fn clear(&mut self) {
         self.fibs.push(Fib::Clear);
     }
@@ -475,6 +484,7 @@ impl CustomType for SharedLie {
             .with_fn("look", Self::look)
             .with_fn("tag", Self::tag)
             .with_fn("sleep", Self::sleep)
+            .with_fn("stop", Self::stop)
             .with_fn("clear", Self::clear);
     }
 }
@@ -847,6 +857,15 @@ pub(crate) mod test {
             &[Fib::Sleep {
                 duration: Duration::from_millis(250)
             }]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn stop() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            test_script(false, r#"lie.stop(); lie.clear()"#)?.fibs(),
+            &[Fib::Stop, Fib::Clear]
         );
         Ok(())
     }
