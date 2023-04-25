@@ -276,10 +276,15 @@ impl Tale {
                     write!(
                         stdout,
                         "mendax: press '/' to jump to a tag, '!' to exit, 'h' or '?' to show this help\r\n"
-                    )?;
+                        )?;
                 }
                 Event::Key(KeyEvent {
                     code: KeyCode::Char('!'),
+                    ..
+                })
+                | Event::Key(KeyEvent {
+                    code: KeyCode::Char('d'),
+                    modifiers: KeyModifiers::CONTROL,
                     ..
                 }) => return Ok(UnpauseAction::Exit),
                 Event::Key(KeyEvent {
