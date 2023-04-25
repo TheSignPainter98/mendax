@@ -136,6 +136,7 @@ impl Tale {
                     tags.insert(name, steps.len());
                 }
                 Fib::Sleep { duration } => steps.push(Step::Sleep(duration)),
+                Fib::Stop => steps.push(Step::Stop),
                 Fib::Clear => steps.push(Step::Clear),
             }
         }
@@ -177,9 +178,7 @@ impl Tale {
                         pc = jmp;
                         continue;
                     }
-                    UnpauseAction::Exit => {
-                        break;
-                    }
+                    UnpauseAction::Exit => break,
                     UnpauseAction::None => {}
                 },
                 Step::ShowCursor => {
@@ -230,6 +229,7 @@ impl Tale {
                     execute!(stdout, SetAttribute(Attribute::Reset))?;
                 }
                 Step::Sleep(duration) => thread::sleep(*duration),
+                Step::Stop => break,
                 Step::Clear => execute!(stdout, Clear(ClearType::All))?,
                 Step::ScreenOpen => {
                     execute!(stdout, SavePosition, EnterAlternateScreen, MoveTo(0, 0))?
@@ -338,6 +338,7 @@ enum Step {
     Show(String),
     System(System),
     Sleep(Duration),
+    Stop,
     Clear,
     ScreenOpen,
     ScreenClose,

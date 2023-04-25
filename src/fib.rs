@@ -31,5 +31,6 @@ pub enum Fib {
     Sleep {
         duration: Duration,
     },
+    Stop,
     Clear,
 }
