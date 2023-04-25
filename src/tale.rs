@@ -262,7 +262,7 @@ impl Tale {
                     }
                     write!(
                         stdout,
-                        "(help) press '/' to jump to tag, '!' to exit, 'h' for this help\r\n"
+                        "mendax: press '/' to jump to a tag, '!' to exit, 'h' or '?' to show this help\r\n"
                     )?;
                 }
                 Event::Key(KeyEvent {
