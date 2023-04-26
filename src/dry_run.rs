@@ -121,6 +121,7 @@ impl DryRun for Fib {
                 ),
                 depth,
             ),
+            Self::Pause => builder.add_line("(pause)", depth),
             Self::Stop => builder.add_line("(STOP)", depth),
             Self::Enter { msg } => builder.add_line(format!("(enter) {msg}"), depth),
             Self::Clear => builder.add_line("(clear)", depth),
@@ -149,6 +150,7 @@ mod test {
                         lie.system("ls");
                         lie.system("ls", "dir");
                         lie.sleep(100);
+                        lie.pause();
                         lie.stop();
                         lie.enter("asdf");
                     }
@@ -178,6 +180,7 @@ mod test {
                 ! ls
                 ! ls (secretly calls: dir)
                 (sleep) 100ms
+                (pause)
                 (STOP)
                 (enter) asdf
                 (screen)
@@ -195,6 +198,7 @@ mod test {
                     ! ls
                     ! ls (secretly calls: dir)
                     (sleep) 100ms
+                    (pause)
                     (STOP)
                     (enter) asdf
                 $ man foo
@@ -213,6 +217,7 @@ mod test {
                     ! ls
                     ! ls (secretly calls: dir)
                     (sleep) 100ms
+                    (pause)
                     (STOP)
                     (enter) asdf
             "#}

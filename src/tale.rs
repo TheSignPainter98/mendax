@@ -142,6 +142,7 @@ impl Tale {
                     tags.insert(name, steps.len());
                 }
                 Fib::Sleep { duration } => steps.push(Step::Sleep(duration)),
+                Fib::Pause => steps.push(Step::Pause),
                 Fib::Stop => steps.push(Step::Stop),
                 Fib::Enter { msg } => {
                     steps.push(Step::Type(Self::sanitise(&msg)));

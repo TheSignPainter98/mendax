@@ -31,6 +31,7 @@ pub enum Fib {
     Sleep {
         duration: Duration,
     },
+    Pause,
     Stop,
     Enter {
         msg: String,
