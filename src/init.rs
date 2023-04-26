@@ -8,22 +8,22 @@ use std::{
 const EXAMPLE: &str = r#"
 lie.look(#{ title: "legit demo" });
 
-lie.run("echo Hello, world", "Hello, world");
-lie.run("echo 'All of this is fake'", "'All of this is fake'");
+lie.run("echo Hello, world", "Hello, world\n");
+lie.run("echo 'All of this is fake'", "All of this is fake\n");
 
 lie.cd("~");
 
 lie.run("ls -A1", [
-    ".bash_history",
-    ".bashrc",
-    ".cargo",
-    ".rustup",
-    ".vimrc",
-    ".zshrc",
-    "Desktop",
-    "Documents",
-    "Downloads",
-    "snap",
+    ".bash_history\n",
+    ".bashrc\n",
+    ".cargo\n",
+    ".rustup\n",
+    ".vimrc\n",
+    ".zshrc\n",
+    "Desktop\n",
+    "Documents\n",
+    "Downloads\n",
+    "snap\n",
 ]);
 "#;
 
