@@ -246,7 +246,7 @@ impl Tale {
                 }
                 Step::Sleep(duration) => thread::sleep(*duration),
                 Step::Stop => break,
-                Step::Clear => execute!(stdout, Clear(ClearType::All))?,
+                Step::Clear => execute!(stdout, Clear(ClearType::All), MoveTo(0, 0))?,
                 Step::ScreenOpen => {
                     execute!(stdout, SavePosition, EnterAlternateScreen, MoveTo(0, 0))?
                 }
