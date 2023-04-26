@@ -41,7 +41,7 @@ impl From<Lie> for Tale {
             steps.push(Step::Ps1);
             steps.push(Step::ShowCursor);
             steps.push(Step::Pause);
-            steps.push(Step::Show("".into()));
+            steps.push(Step::Show("\r\n".into()));
         }
 
         Self {
@@ -70,20 +70,22 @@ impl Tale {
                         steps.push(Step::Type(cmd));
                         steps.push(Step::Pause);
                     }
-                    steps.push(Step::Show("".into()));
+                    steps.push(Step::Show("\r\n".into()));
                     steps.push(Step::HideCursor);
                     for line in result {
-                        steps.push(Step::Show(line));
+                        steps.push(Step::Show(Self::sanitise(&line)));
                     }
                 }
-                Fib::Show { text } => steps.push(Step::Show(text)),
+                Fib::Show { text } => steps.push(Step::Show(Self::sanitise(&text))),
                 Fib::System { apparent_cmd, cmd } => {
                     steps.push(Step::ShowCursor);
                     steps.push(Step::Ps1);
                     steps.push(Step::Pause);
-                    steps.push(Step::Type(apparent_cmd.unwrap_or_else(|| cmd.clone())));
+                    steps.push(Step::Type(Self::sanitise(
+                        &apparent_cmd.unwrap_or_else(|| cmd.clone()),
+                    )));
                     steps.push(Step::Pause);
-                    steps.push(Step::Show("".into()));
+                    steps.push(Step::Show("\r\n".into()));
                     steps.push(Step::HideCursor);
                     steps.push(Step::System(System::new(cmd, *num_systems)));
                     *num_systems += 1;
@@ -97,10 +99,10 @@ impl Tale {
                         steps.push(Step::ShowCursor);
                         steps.push(Step::Pause);
                         if !apparent_cmd.trim().is_empty() {
-                            steps.push(Step::Type(apparent_cmd));
+                            steps.push(Step::Type(Self::sanitise(&apparent_cmd)));
                             steps.push(Step::Pause);
                         }
-                        steps.push(Step::Show("".into()));
+                        steps.push(Step::Show("\r\n".into()));
                         steps.push(Step::HideCursor);
                     }
                     steps.push(Step::ScreenOpen);
@@ -142,13 +144,17 @@ impl Tale {
                 Fib::Sleep { duration } => steps.push(Step::Sleep(duration)),
                 Fib::Stop => steps.push(Step::Stop),
                 Fib::Enter { msg } => {
-                    steps.push(Step::Type(msg));
+                    steps.push(Step::Type(Self::sanitise(&msg)));
                     steps.push(Step::Pause);
-                    steps.push(Step::Show("".into()));
+                    steps.push(Step::Show("\r\n".into()));
                 }
                 Fib::Clear => steps.push(Step::Clear),
             }
         }
+    }
+
+    fn sanitise(text: &str) -> String {
+        text.replace('\n', "\r\n")
     }
 
     pub fn tell(&mut self, stdout: &mut StdoutLock) -> Result<(), Box<dyn Error>> {
@@ -203,8 +209,8 @@ impl Tale {
                     stdout.flush()?;
                 }
                 Step::Type(msg) => style.fake_type(stdout, msg.chars())?,
-                Step::Show(line) => {
-                    execute!(stdout, Print(line), Print("\r\n"))?;
+                Step::Show(text) => {
+                    execute!(stdout, Print(text))?;
                     stdout.flush()?;
                 }
                 Step::System(system) => {
