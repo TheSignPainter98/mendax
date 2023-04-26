@@ -109,6 +109,12 @@ This takes no arguments.
 lie.clear()
 ```
 
+To pause an application at a given point, use `lie.pause`.
+This takes no arguments.
+```rhai
+lie.pause()
+```
+
 To stop execution early, use `lie.stop`.
 This takes no arguments and is useful with jumps as it allows for optional presentation parts.
 ```rhai
